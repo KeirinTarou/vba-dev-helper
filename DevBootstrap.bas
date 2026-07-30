@@ -79,7 +79,7 @@ Public Enum CutomErrorEnum
     ERR_NOT_SUPPORTED = 10102
     ERR_NOT_IMPLEMENTED = 10103
     ' 10200～: 検索
-    ERR_NOT_FOUMD = 10201
+    ERR_NOT_FOUND = 10201
     ERR_DUPLICATED = 10202
     ' 10300～: ファイル
     ERR_FILE_NOT_FOUND = 10301
@@ -131,11 +131,15 @@ End Sub
 Private Sub PullDevModules()
     ' dev_helperプロジェクト関係のモジュールを一括pull
     '   - このモジュールだけは手動pull
+    Const ERROR_SOURCE As String = SELF_MOD_NAME & ".PullDevModules()"
+    
     Set m_fso = CreateObject("Scripting.FileSystemObject")
-    ' 一旦、dev_helper関係モジュールをポア
-    Call RemoveDevModules
     Dim repoDir As String
     repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
+    ' 一旦、dev_helper関係モジュールをポア
+    Call RemoveDevModules
+    If Not m_fso.FolderExists(repoDir) Then _
+        Call RaiseError(ERR_NOT_FOUND, ERROR_SOURCE, "リポジトリが存在しない。")
     Dim f As Object, ext As String, bs As String
     For Each f In m_fso.GetFolder(repoDir).Files
         ext = LCase$(m_fso.GetExtensionName(f.Path))
