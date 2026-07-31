@@ -79,7 +79,7 @@ Public Enum CutomErrorEnum
     ERR_NOT_SUPPORTED = 10102
     ERR_NOT_IMPLEMENTED = 10103
     ' 10200～: 検索
-    ERR_NOT_FOUND = 10201
+    ERR_NOT_FOUMD = 10201
     ERR_DUPLICATED = 10202
     ' 10300～: ファイル
     ERR_FILE_NOT_FOUND = 10301
@@ -94,10 +94,10 @@ End Enum
 ' 仕様を変更するときはここをメンテ
 '   - リポジトリ用フォルダ名
 Private Const DEV_HELPER_REPO_NAME As String = "\.dev_helper\"
-'   - 自動push対象ファイルの接頭辞
-Private Const DEV_HELPER_PREFIX As String = "Dev"
 '   - 自動pull除外用モジュール名（このモジュールの名前）
 Private Const SELF_MOD_NAME As String = "DevBootstrap"
+'   - 自動push対象ファイルの接頭辞
+Public Const DEV_HELPER_PREFIX As String = "Dev"
 
 Private m_fso As Object
 
@@ -115,7 +115,7 @@ Private Sub PushDevModules()
     ' 接頭辞`Dev`のもののみリポジトリに送り込む
     For Each comp In ThisWorkbook.VBProject.VBComponents
         cn = comp.Name
-        If Not IsTarget(cn) Then GoTo Continue
+        If Not IsDevHelper(cn) Then GoTo Continue
         ' エクスポート用ファイルパス取得
         f = cn & ComponentExtension(comp.Type)
         p = repoDir & f
@@ -131,15 +131,11 @@ End Sub
 Private Sub PullDevModules()
     ' dev_helperプロジェクト関係のモジュールを一括pull
     '   - このモジュールだけは手動pull
-    Const ERROR_SOURCE As String = SELF_MOD_NAME & ".PullDevModules()"
-    
     Set m_fso = CreateObject("Scripting.FileSystemObject")
-    Dim repoDir As String
-    repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
     ' 一旦、dev_helper関係モジュールをポア
     Call RemoveDevModules
-    If Not m_fso.FolderExists(repoDir) Then _
-        Call RaiseError(ERR_NOT_FOUND, ERROR_SOURCE, "リポジトリが存在しない。")
+    Dim repoDir As String
+    repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
     Dim f As Object, ext As String, bs As String
     For Each f In m_fso.GetFolder(repoDir).Files
         ext = LCase$(m_fso.GetExtensionName(f.Path))
@@ -147,7 +143,7 @@ Private Sub PullDevModules()
         ' `.bas`、`.cls`以外はスルー
         If Not (ext = "bas" Or ext = "cls") Then GoTo Continue
         ' dev_helper以外はスルー
-        If Not IsTarget(bs) Then GoTo Continue
+        If Not IsDevHelper(bs) Then GoTo Continue
         ' このモジュールもスルー
         If bs = SELF_MOD_NAME Then GoTo Continue
         ' ここまで来たらインポート
@@ -177,7 +173,7 @@ Private Sub RemoveDevModules()
             ' このモジュールはスキップ
             If cn = SELF_MOD_NAME Then GoTo Continue
             ' dev_helper以外はスキップ
-            If Not IsTarget(cn) Then GoTo Continue
+            If Not IsDevHelper(cn) Then GoTo Continue
             ' ここまで来たらポアしても良い
             Call .Remove(comp)
 Continue:
@@ -185,15 +181,15 @@ Continue:
     End With
 End Sub
 
-Private Function IsTarget( _
+Public Function IsDevHelper( _
             ByVal a_ComponentName As String) As Boolean
     Const ERR_SOURCE As String = SELF_MOD_NAME & ".IsTarget()"
-    IsTarget = False
+    IsDevHelper = False
     Dim cn As String
     cn = a_ComponentName
     ' 3文字未満は問答無用でFalse
     If Len(cn) < 3 Then Exit Function
-    IsTarget = _
+    IsDevHelper = _
         (StrComp(Left$(cn, 3), DEV_HELPER_PREFIX, vbBinaryCompare) = 0)
 End Function
 
