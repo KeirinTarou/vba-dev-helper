@@ -13,6 +13,24 @@ The primary goal is to make VBA development feel similar to modern software deve
 
 This project values maintainability and simplicity over feature completeness.
 
+### About `Dev*` modules
+
+Modules prefixed with `Dev` are part of the DevHelper library itself.
+
+They are maintained by the library developer and are not intended to be modified by library users.
+
+Some `Public` procedures exist only to support DevHelper's own development workflow (for example, exporting or updating DevHelper modules).
+
+The visibility (`Public` / `Private`) of a procedure does not necessarily indicate that it is part of the library's public API.
+
+Some `Public` procedures exist only because they must be callable from the VBA editor during DevHelper maintenance.
+
+When reviewing the project, distinguish between: 
+
+- Public APIs intended for library users
+- Public procedures intended only for DevHelper maintenance
+
+
 ---
 
 ## Design Principles
@@ -34,7 +52,7 @@ Implement one feature at a time.
 
 Each procedure should have one clear responsibility.
 
-Public procedures should provide simple APIs.
+Public procedures should provide simple APIs or entry points required for DevHelper maintenance.
 
 Private procedures should implement detailed logic.
 
@@ -52,11 +70,17 @@ The current dependency direction is:
 
 `DevProjIO`
 
-`DevBootstrap` provides shared constants, helper functions, and bootstrap functionality.
+`DevBootstrap` provides shared constants, helper functions, and DevHelper maintenance utilities.
 
-`DevProjIO` implements repository I/O features.
+`DevProjIO` provides repository import/export functionality for library users.
 
 Do not introduce dependencies in the opposite direction.
+
+Although both modules expose `Public` procedures, they serve different audiences and should not be treated as a single public API surface.
+
+Do not recommend changing a procedure's visibility solely to make the API appear cleaner. First consider its intended audience.
+
+Review each module according to its intended role rather than applying generic library design principles.
 
 ---
 
