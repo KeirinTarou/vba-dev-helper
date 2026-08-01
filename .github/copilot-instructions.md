@@ -166,7 +166,17 @@ Prefer solutions that fit naturally within VBA and the VBIDE object model.
 ### Code Organization
 
 - Place Public APIs before Private helper procedures.
-- Use bookmark procedures such as `Private Sub AA_HelperFunctions(): End Sub` to organize the Procedure List. There are intentional and should not be removed.
+- Use bookmark procedures such as `Private Sub AA_HelperFunctions(): End Sub` to organize the Procedure List. These bookmark procedures are intentional and should not be removed.
+
+### Developer experiments
+
+Procedures under `AA_Experiments` are intentional manual verification helpers.
+
+They are used to confirm behavior directly in the VBA environment and should not be removed as dead code without review.
+
+Due to VBA's module-level access restrictions, some manual verification provedures are kept in the same module as the procedures they verify.
+
+Do not move these procedures to separate modules unless the required access design is considered
 
 ### Consistency
 
