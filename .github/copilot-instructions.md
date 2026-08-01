@@ -118,6 +118,12 @@ Do not recommend Python-, Java-, or C#-style solutions unless they fit naturally
 
 Prefer solutions that fit naturally within VBA and the VBIDE object model.
 
+### Intent over convention
+
+Some design choices in this project intentionally differ from common software design practices due to VBA/VBE limitations.
+
+When suggesting improvements, first understand the reason behind the current design before recommending structural changes.
+
 ---
 
 ## Coding Style
