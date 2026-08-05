@@ -76,6 +76,64 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 '   開発者向けヘルパ
 ' =============================================================================
+Private Sub ImportComponent( _
+            ByVal a_ComponentPath As String)
+    
+End Sub
+
+' モジュールファイルからモジュール名を取り出す
+Private Function ExtractModuleName( _
+            ByVal a_ComponentPath As String) As String
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".ExtractModuleName"
+    Dim ret As String
+    
+    Dim f As Integer
+    f = FreeFile()
+    
+    Dim ln As String
+    Dim p1 As Long, p2 As Long
+    
+    Open a_ComponentPath For Input As #f
+    
+    Do Until EOF(f)
+        Line Input #f, ln
+        
+        If Left$(ln, Len("Attribute VB_Name")) = "Attribute VB_Name" Then
+            ' 先頭から`"`を探す
+            p1 = InStr(ln, """")
+            ' 末尾から`"`を探す
+            p2 = InStrRev(ln, """")
+            
+            ' `"`がない or `"`が閉じられていない -> 異常
+            '   -> 例外スロー
+            If p1 = 0 Or p1 = p2 Then
+                Close #f
+                Call RaiseError( _
+                    ERR_INVALID_ARGUMENT, _
+                    ERR_SOURCE, _
+                    "VB_Name属性が壊れている。")
+            End If
+            ' `""`で囲まれた中身（＝モジュール名）をスライス
+            ret = Mid$(ln, p1 + 1, p2 - p1 - 1)
+            
+            ' ファイルを閉じてモジュール名を返す
+            Close #f
+            GoTo Finally
+        End If
+    Loop
+    
+    ' ここへ到達 -> モジュール名が取得できなかった -> 異常事態
+    '   -> 例外スロー
+    Close #f
+    Call RaiseError( _
+        ERR_NOT_FOUND, _
+        ERR_SOURCE, _
+        "モジュール名が見つからなかった。")
+    
+Finally:
+    ExtractModuleName = ret
+End Function
+
 Private Sub ExportComponents( _
             ByVal a_RepositoryPath As String)
     ' プロジェクトの全モジュールをリポジトリにエクスポートする
@@ -178,6 +236,16 @@ Private Function OutputDirPath( _
 End Function
 
 Private Sub AA_Experiments(): End Sub
+
+Private Sub Exp_ExtractModuleName()
+    ' モジュール名を抽出する
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\DevBootstrap.bas"
+    Dim modName As String
+    modName = ExtractModuleName(modPath)
+    Debug.Print modName
+    Debug.Assert modName = "DevBootstrap"
+End Sub
 
 Private Sub Exp_ExportModules()
     ' プロジェクトの全モジュールをエクスポートする
