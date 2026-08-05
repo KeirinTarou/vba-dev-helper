@@ -78,7 +78,18 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 Private Sub ImportComponent( _
             ByVal a_ComponentPath As String)
-    
+    ' モジュール名を取得
+    Dim modName As String
+    modName = ExtractModuleName(a_ComponentPath)
+    Dim comp As Object
+    Set comp = FindComponent(modName)
+    ' プロジェクト内に同名モジュールがない -> そのままpull
+    If comp Is Nothing Then
+        Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
+    ' プロジェクト内に同名モジュールあり -> コードのみpull
+    Else
+        
+    End If
 End Sub
 
 ' 指定した名前のコンポーネントを取得する（なければNothing）
@@ -254,6 +265,12 @@ Private Function OutputDirPath( _
 End Function
 
 Private Sub AA_Experiments(): End Sub
+
+Private Sub Exp_ImportComponent_PullNotExistingModule()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
 
 Private Sub Exp_FindComponent()
     Dim comp1 As Object, comp2 As Object
