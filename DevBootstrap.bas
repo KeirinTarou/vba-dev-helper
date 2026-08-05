@@ -79,7 +79,7 @@ Public Enum CutomErrorEnum
     ERR_NOT_SUPPORTED = 10102
     ERR_NOT_IMPLEMENTED = 10103
     ' 10200Å`: åüçı
-    ERR_NOT_FOUMD = 10201
+    ERR_NOT_FOUND = 10201
     ERR_DUPLICATED = 10202
     ' 10300Å`: ÉtÉ@ÉCÉã
     ERR_FILE_NOT_FOUND = 10301

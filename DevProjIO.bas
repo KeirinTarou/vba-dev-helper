@@ -87,7 +87,7 @@ Private Sub ExportComponents( _
         Set m_fso = CreateObject("Scripting.FileSystemObject")
     ' リポジトリがない -> 例外スロー
     If Not m_fso.FolderExists(a_RepositoryPath) Then _
-        Call RaiseError(ERR_NOT_FOUMD, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
+        Call RaiseError(ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
     ' ExportComponent()を呼び出す
     Dim comp As Object, outDir As String
     For Each comp In ThisWorkbook.VBProject.VBComponents
@@ -111,7 +111,7 @@ Private Sub ExportComponent( _
         Set m_fso = CreateObject("Scripting.FileSystemObject")
     ' push先フォルダがない -> 例外スロー
     If Not m_fso.FolderExists(a_OutputDir) Then _
-        Call RaiseError(ERR_NOT_FOUMD, ERR_SOURCE, "保存先フォルダが存在しない。")
+        Call RaiseError(ERR_NOT_FOUND, ERR_SOURCE, "保存先フォルダが存在しない。")
 
     ' エクスポートファイル名を取得 -> 保存先パス作成
     Dim f As String, p As String
