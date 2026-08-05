@@ -188,7 +188,8 @@ Private Sub Exp_ExportModule()
     ' モジュールをエクスポートする
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     Dim comp As Object, stdDir As String, f As String
-    stdDir = OutputDirPath(vbext_ct_StdModule)
+    stdDir = _
+        OutputDirPath(vbext_ct_StdModule, ThisWorkbook.Path & "\" & REPO_NAME)
     If Not m_fso.FolderExists(stdDir) Then
         Call m_fso.CreateFolder(stdDir)
     End If
