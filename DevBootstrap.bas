@@ -79,7 +79,7 @@ Public Enum CutomErrorEnum
     ERR_NOT_SUPPORTED = 10102
     ERR_NOT_IMPLEMENTED = 10103
     ' 10200～: 検索
-    ERR_NOT_FOUND = 10201
+    ERR_NOT_FOUMD = 10201
     ERR_DUPLICATED = 10202
     ' 10300～: ファイル
     ERR_FILE_NOT_FOUND = 10301
@@ -102,6 +102,15 @@ Public Const DEV_HELPER_PREFIX As String = "Dev"
 Private m_fso As Object
 
 Private Sub PushDevModules()
+    ' SharePoint上のプロジェクトから実行しようとしたらブロック
+    If Left(ThisWorkbook.Path, 5) = "https" Then
+        Call MsgBox( _
+            Prompt:="SharePoint上のプロジェクトで実行してはいけない。（クソが。）", _
+            Buttons:=vbCritical, _
+            Title:="(　ﾟдﾟ)､ﾍﾟｯ < クソが。")
+        Exit Sub
+    End If
+    
     ' dev_helperプロジェクト関係のモジュールを所定フォルダに全push
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     
@@ -129,6 +138,15 @@ Continue:
 End Sub
 
 Private Sub PullDevModules()
+    ' SharePoint上のプロジェクトから実行しようとしたらブロック
+    If Left(ThisWorkbook.Path, 5) = "https" Then
+        Call MsgBox( _
+            Prompt:="SharePoint上のプロジェクトで実行してはいけない。（クソが。）", _
+            Buttons:=vbCritical, _
+            Title:="(　ﾟдﾟ)､ﾍﾟｯ < クソが。")
+        Exit Sub
+    End If
+    
     ' dev_helperプロジェクト関係のモジュールを一括pull
     '   - このモジュールだけは手動pull
     Set m_fso = CreateObject("Scripting.FileSystemObject")
