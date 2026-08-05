@@ -81,6 +81,24 @@ Private Sub ImportComponent( _
     
 End Sub
 
+' 指定した名前のコンポーネントを取得する（なければNothing）
+Private Function FindComponent( _
+            ByVal a_ComponentName As String) As Object
+    Dim ret As Object
+    Set ret = Nothing
+    
+    Dim comp As Object
+    For Each comp In ThisWorkbook.VBProject.VBComponents
+        If comp.Name = a_ComponentName Then
+            Set ret = comp
+            GoTo Finally
+        End If
+    Next
+    
+Finally:
+    Set FindComponent = ret
+End Function
+
 ' モジュールファイルからモジュール名を取り出す
 Private Function ExtractModuleName( _
             ByVal a_ComponentPath As String) As String
@@ -236,6 +254,17 @@ Private Function OutputDirPath( _
 End Function
 
 Private Sub AA_Experiments(): End Sub
+
+Private Sub Exp_FindComponent()
+    Dim comp1 As Object, comp2 As Object
+    ' 存在するモジュール
+    Set comp1 = FindComponent("DevBootstrap")
+    Debug.Print comp1.Name
+    Debug.Assert comp1.Name = "DevBootstrap"
+    ' 存在しないモジュール
+    Set comp2 = FindComponent("pachinko123")
+    Debug.Assert comp2 Is Nothing
+End Sub
 
 Private Sub Exp_ExtractModuleName()
     ' モジュール名を抽出する
