@@ -92,6 +92,41 @@ Private Sub ImportComponent( _
     End If
 End Sub
 
+' 指定したモジュールファイルから、純粋なコード部分のみ取り出す
+Private Function LoadComponentCode( _
+            ByVal a_ComponentPath As String) As String
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".LoadComponentCode()"
+    Dim ret As String
+    
+    On Error GoTo HandleError:
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Dim ts As Object
+    Set ts = fso.OpenTextFile(a_ComponentPath, ForReading)
+    ret = ts.ReadAll()
+    GoTo Finally
+    
+    Dim errNum As Long, errSrc As String, errDesc As String
+    errNum = 0
+HandleError:
+    errNum = Err.Number
+    errSrc = Err.Source
+    errDesc = Err.Description
+    Debug.Print "Load """ & a_ComponentPath & """ failed: "
+    Debug.Print vbTab & "Number: " & errNum
+    Debug.Print vbTab & "Source: " & errSrc
+    Debug.Print vbTab & "Desc  : " & errDesc
+Finally:
+    If Not ts Is Nothing Then
+        Call ts.Close
+        Set ts = Nothing
+    End If
+    ' 例外発生時は呼び出し元に再スロー
+    If errNum <> 0 Then Call Err.Raise(errNum, errSrc, errDesc)
+    LoadComponentCode = ret
+End Function
+            
+
 ' 指定した名前のコンポーネントを取得する（なければNothing）
 Private Function FindComponent( _
             ByVal a_ComponentName As String) As Object
@@ -265,6 +300,11 @@ Private Function OutputDirPath( _
 End Function
 
 Private Sub AA_Experiments(): End Sub
+Private Sub Exp_LoadComponentCode()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print LoadComponentCode(modPath)
+End Sub
 
 Private Sub Exp_ImportComponent_PullNotExistingModule()
     Dim modPath As String
