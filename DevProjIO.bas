@@ -92,6 +92,55 @@ Private Sub ImportComponent( _
     End If
 End Sub
 
+' モジュールから取り出したコードの正味の開始位置（行）を取得する
+'   - `Attribute`で始まる行の最後の行（とそれに続く空行）までが
+'     ヘッダ情報部分
+Private Function FindCodeStartLine( _
+            ByVal a_ComponentPath As String) As Long
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".FindCodeStartLine()"
+    Dim ret As Long
+    ret = 0
+    
+    Dim conts As String
+    conts = LoadComponentCode(a_ComponentPath)
+    Dim i As Long, codeArr As Variant
+    codeArr = Split(conts, vbCrLf)
+    Dim foundAttr As Boolean
+    foundAttr = False
+    For i = LBound(codeArr) To UBound(codeArr)
+        If Left$(codeArr(i), Len("Attribute ")) = "Attribute " Then
+            foundAttr = True
+            GoTo Continue
+        End If
+        If Not foundAttr Then GoTo Continue
+        ' 空行はスキップ
+        If Len(Trim$(codeArr(i))) = 0 Then GoTo Continue
+        ' ここに来た時点で`Attribute`で始まる行を1つは通過済み
+        ' かつ`Attribute `で始まらない
+        ' かつ空行でもない
+        '   -> この行から正味のコード開始
+        ' Split()で作った配列は`0`始まりなので`1`を足して補正
+        ret = i + 1
+        ' ここで行番号を返却
+        GoTo Finally
+Continue:
+    Next
+    ' `Attribute`で始まる行がなかった -> 異常 -> 例外スロー
+    If Not foundAttr Then _
+        Call RaiseError( _
+            ERR_INVALID_FILE, _
+            ERR_SOURCE, _
+            "`Attribute`がない。VBAのモジュールファイルではないようだ。")
+    ' 返り値が`1`以下になる
+    If ret <= 1 Then _
+        Call RaiseError( _
+            ERR_INVALID_FILE, _
+            ERR_SOURCE, _
+            "コードの開始位置が1行目以下であるはずがない。")
+Finally:
+    FindCodeStartLine = ret
+End Function
+
 ' 指定したモジュールファイルから、純粋なコード部分のみ取り出す
 Private Function LoadComponentCode( _
             ByVal a_ComponentPath As String) As String
@@ -300,6 +349,15 @@ Private Function OutputDirPath( _
 End Function
 
 Private Sub AA_Experiments(): End Sub
+' =============================================================================
+'   Experimental procedures
+' =============================================================================
+Private Sub Exp_FindCodeStartLine()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print FindCodeStartLine(modPath)
+End Sub
+
 Private Sub Exp_LoadComponentCode()
     Dim modPath As String
     modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
