@@ -4,7 +4,7 @@ Option Explicit
 ' =============================================================================
 '   dev_helper関係モジュールpush・pull用モジュール
 ' =============================================================================
-
+' VBExtention
 Public Enum vbext_CodePaneView
     vbext_cv_ProcedureView = 0
     vbext_cv_FullModuleView = 1
@@ -67,6 +67,44 @@ Public Enum vbext_WindowType
     vbext_wt_LinkedWindowFrame = 11
     vbext_wt_MainWindow = 12
     vbext_wt_ToolWindow = 15
+End Enum
+
+' FileSystemObject
+Public Enum SpecialFolderConst
+  WindowsFolder = 0
+  SystemFolder = 1
+  TemporaryFolder = 2
+End Enum
+
+Public Enum StandardStreamTypes
+  StdIn = 0
+  StdOut = 1
+  StdErr = 2
+End Enum
+
+Public Enum IOMode
+  ForReading = 1
+  ForWriting = 2
+  ForAppending = 8
+End Enum
+
+Public Enum Tristate
+  TristateFalse = 0
+  TristateMixed = -2
+  TristateTrue = -1
+  TristateUseDefault = -2
+End Enum
+
+Public Enum FileAttributes
+  Normal = 0
+  ReadOnly = 1
+  Hidden = 2
+  System = 4
+  Volume = 8
+  Directory = &H10
+  Archive = &H20
+  Alias = &H400
+  Compressed = &H800
 End Enum
 
 Public Enum CutomErrorEnum
