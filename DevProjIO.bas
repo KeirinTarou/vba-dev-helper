@@ -117,6 +117,36 @@ HandleError:
     Call Err.Raise(errNum, errSrc, errDesc)
 End Sub
 
+' コードを比較する
+Private Function HasChanged( _
+            ByVal a_ProjectCode As String, _
+            ByVal a_RepositoryCode As String) As Boolean
+    Dim a As String, b As String
+    a = NormalizeCode(a_ProjectCode)
+    b = NormalizeCode(a_RepositoryCode)
+    HasChanged = (a <> b)
+End Function
+
+' コードを正規化する
+Private Function NormalizeCode( _
+            ByVal a_Code As String) As String
+    Dim ret As String
+    
+    ' 両端のスペースをトリム
+    ret = Trim(a_Code)
+    ' 改行を統一教会する
+    ret = Replace(ret, vbCrLf, vbLf)
+    ret = Replace(ret, vbCr, vbLf)
+    ' 末尾の改行を削除
+    Do While (Right$(ret, 1) = vbLf)
+        ret = Left$(ret, Len(ret) - 1)
+    Loop
+    ' 両端のスペースをトリム
+    ret = Trim(ret)
+    
+    NormalizeCode = ret
+End Function
+
 ' プロジェクト側のモジュールからコードを削除する
 Private Sub DeleteCodeLines( _
             ByVal a_Component As Object)
@@ -405,6 +435,31 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
+Private Sub Exp_HasChanged()
+    Dim a As String, b As String
+    a = "Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ち～ん（笑）""" & vbCrLf & _
+        "End Sub"
+    b = "   Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ち～ん（笑）""" & vbCrLf & _
+        "End Sub  " & vbCrLf & vbCrLf & vbLf
+    ' aとbは一致判定のはず
+    Debug.Assert Not HasChanged(a, b)
+    
+    a = "Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ち～ん（笑）""" & vbCrLf & _
+        "End Sub"
+    b = "   Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ぢ～ん（笑）""" & vbCrLf & _
+        "End Sub  " & vbCrLf & vbCrLf & vbLf
+    ' aとbは不一致判定のはず
+    Debug.Assert HasChanged(a, b)
+    
+    ' 空文字列の場合
+    Debug.Assert Not HasChanged("", "")
+    Debug.Assert HasChanged("", "Option Explicit")
+End Sub
+
 Private Sub Exp_ImportComponent()
     Dim modPath As String
     modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
