@@ -84,16 +84,22 @@ Private Sub ImportComponent( _
     modName = ExtractModuleName(a_ComponentPath)
     Dim comp As Object
     Set comp = FindComponent(modName)
-    ' プロジェクト内に同名モジュールがない -> そのままpull
+    
+    ' 例外発生時は呼び出し元に再スロー
     On Error GoTo HandleError
+    ' プロジェクト内に同名モジュールがない -> そのままpull
     If comp Is Nothing Then
         Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
     ' プロジェクト内に同名モジュールあり -> コードのみpull
     Else
         ' リポジトリから正味のコード部分を取得
-        '   - 例外発生時は呼び出し元に再スロー
-        Dim conts As String
+        Dim conts As String, projCode As String
         conts = ExtractCodeBody(a_ComponentPath)
+        ' プロジェクト内のモジュールからコード部分を取得
+        projCode = ExtractProjectCode(comp)
+        ' 両者の内容が一致していたらpullしない
+        If Not HasChanged(conts, projCode) Then Exit Sub
+        
         ' 既存のコードを削除
         '   - モジュールが空の場合をガード
         If comp.CodeModule.CountOfLines > 0 Then
@@ -116,6 +122,22 @@ HandleError:
     ' 呼び出し元に再スロー
     Call Err.Raise(errNum, errSrc, errDesc)
 End Sub
+
+' プロジェクトのモジュール（CodeModuleオブジェクト）からコードを抜き出す
+Private Function ExtractProjectCode( _
+            ByVal a_Component As Object) As String
+    Dim ret As String
+    ret = ""
+    
+    Dim cm As Object
+    Set cm = a_Component.CodeModule
+    If cm.CountOfLines < 1 Then GoTo Finally
+    
+    ret = cm.lines(1, cm.CountOfLines)
+Finally:
+    ExtractProjectCode = ret
+End Function
+    
 
 ' コードを比較する
 Private Function HasChanged( _
@@ -435,6 +457,12 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
+Private Sub Exp_ImportComponent_SkipIfNotChanged()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
 Private Sub Exp_HasChanged()
     Dim a As String, b As String
     a = "Private Sub Foo()" & vbCrLf & _
