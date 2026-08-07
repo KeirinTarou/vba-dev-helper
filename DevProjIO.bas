@@ -89,7 +89,15 @@ Private Sub ImportComponent( _
     ' プロジェクト内に同名モジュールあり -> コードのみpull
     Else
         
+        
     End If
+End Sub
+
+' プロジェクト側のモジュールからコードを削除する
+Private Sub DeleteCodeLines( _
+            ByVal a_Component As Object)
+    Call a_Component.CodeModule.DeleteLines( _
+        1, a_Component.CodeModule.CountOfLines)
 End Sub
 
 ' モジュールから、コードの正味の部分のみ取り出す
@@ -372,6 +380,13 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
+Private Sub Exp_DeleteCodeLines()
+    Dim comp As Object
+    Set comp = FindComponent("ForPullTest")
+    'Set comp = FindComponent("SOEntry")
+    Call DeleteCodeLines(comp)
+End Sub
+
 Private Sub Exp_ExtractCodeBody()
     Dim modPath As String
     modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
