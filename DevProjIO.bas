@@ -92,6 +92,26 @@ Private Sub ImportComponent( _
     End If
 End Sub
 
+' モジュールから、コードの正味の部分のみ取り出す
+Private Function ExtractCodeBody( _
+            ByVal a_ComponentPath As String) As String
+    Dim ret As String
+    
+    Dim conts As String, startLn As Long
+    conts = LoadComponentCode(a_ComponentPath)
+    startLn = FindCodeStartLine(a_ComponentPath)
+    Dim codeArr As Variant
+    codeArr = Split(conts, vbCrLf)
+    
+    Dim i As Long
+    For i = startLn - 1 To UBound(codeArr)
+        If ret <> "" Then ret = ret & vbCrLf
+        ret = ret & codeArr(i)
+    Next
+    
+    ExtractCodeBody = ret
+End Function
+
 ' モジュールから取り出したコードの正味の開始位置（行）を取得する
 '   - `Attribute`で始まる行の最後の行（とそれに続く空行）までが
 '     ヘッダ情報部分
@@ -352,6 +372,12 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
+Private Sub Exp_ExtractCodeBody()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print ExtractCodeBody(modPath)
+End Sub
+
 Private Sub Exp_FindCodeStartLine()
     Dim modPath As String
     modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
