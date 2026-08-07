@@ -167,11 +167,23 @@ Private Sub PushDevModules()
         ' エクスポート用ファイルパス取得
         f = cn & ComponentExtension(comp.Type)
         p = repoDir & f
-        ' 既存の同名ファイルがあればポア
+        ' 既存の同名ファイルがあるとき
         '   - DeleteFile(filespec, [force])
-        If m_fso.FileExists(p) Then Call m_fso.DeleteFile(p, True)
-        Call comp.Export(p)
-        Debug.Print "Pushed: " & f
+        If m_fso.FileExists(p) Then
+            ' プロジェクト側とリポジトリ側のコードを取得
+            Dim projCode As String, repoCode As String
+            projCode = ExtractProjectCode(comp)
+            repoCode = ExtractCodeBody(p)
+            ' 内容が同じだったらスキップ
+            If Not HasChanged(projCode, repoCode) Then
+                Debug.Print "Skipped: " & f
+            ' 内容が異なっていたら、既存ファイルをポア -> エクスポート
+            Else
+                Call m_fso.DeleteFile(p, True)
+                Call comp.Export(p)
+                Debug.Print "Pushed: " & f
+            End If
+        End If
 Continue:
     Next
 End Sub
@@ -229,7 +241,6 @@ Finally:
     ExtractProjectCode = ret
 End Function
     
-
 ' コードを比較する
 Public Function HasChanged( _
             ByVal a_ProjectCode As String, _
