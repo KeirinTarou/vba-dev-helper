@@ -78,24 +78,49 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 Private Sub ImportComponent( _
             ByVal a_ComponentPath As String)
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".ImportComponent()"
     ' モジュール名を取得
     Dim modName As String
     modName = ExtractModuleName(a_ComponentPath)
     Dim comp As Object
     Set comp = FindComponent(modName)
     ' プロジェクト内に同名モジュールがない -> そのままpull
+    On Error GoTo HandleError
     If comp Is Nothing Then
         Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
     ' プロジェクト内に同名モジュールあり -> コードのみpull
     Else
-        
-        
+        ' リポジトリから正味のコード部分を取得
+        '   - 例外発生時は呼び出し元に再スロー
+        Dim conts As String
+        conts = ExtractCodeBody(a_ComponentPath)
+        ' 既存のコードを削除
+        '   - モジュールが空の場合をガード
+        If comp.CodeModule.CountOfLines > 0 Then
+            Call DeleteCodeLines(comp)
+        End If
+        ' プロジェクトのモジュールに闘魂注入
+        Call comp.CodeModule.AddFromString(conts)
     End If
+    Exit Sub
+HandleError:
+    Dim errNum As Long, errSrc As String, errDesc As String
+    errNum = Err.Number
+    errSrc = Err.Source & "." & ERR_SOURCE
+    errDesc = Err.Description & vbCrLf & _
+        "(モジュール`" & modName & "`のpullに失敗した。)"
+    Debug.Print "Pull `" & modName & "` module failed."
+    Debug.Print "Number: " & errNum
+    Debug.Print "Source: " & errSrc
+    Debug.Print "Desc  : " & errDesc
+    ' 呼び出し元に再スロー
+    Call Err.Raise(errNum, errSrc, errDesc)
 End Sub
 
 ' プロジェクト側のモジュールからコードを削除する
 Private Sub DeleteCodeLines( _
             ByVal a_Component As Object)
+    If a_Component.CodeModule.CountOfLines < 1 Then Exit Sub
     Call a_Component.CodeModule.DeleteLines( _
         1, a_Component.CodeModule.CountOfLines)
 End Sub
@@ -380,6 +405,12 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
+Private Sub Exp_ImportComponent()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
 Private Sub Exp_DeleteCodeLines()
     Dim comp As Object
     Set comp = FindComponent("ForPullTest")
