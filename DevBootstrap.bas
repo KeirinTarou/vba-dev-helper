@@ -177,13 +177,17 @@ Private Sub PushDevModules()
             ' 内容が同じだったらスキップ
             If Not HasChanged(projCode, repoCode) Then
                 Debug.Print "Skipped: " & f
-            ' 内容が異なっていたら、既存ファイルをポア -> エクスポート
+                GoTo Continue
+            ' 内容が異なっていたら、既存ファイルをポア
             Else
                 Call m_fso.DeleteFile(p, True)
-                Call comp.Export(p)
-                Debug.Print "Pushed: " & f
             End If
         End If
+        ' 既存の同名ファイルがない場合
+        ' 既存の同名ファイルがあり、内容が異なる場合
+        '   -> エクスポート
+        Call comp.Export(p)
+        Debug.Print "Pushed: " & f
 Continue:
     Next
 End Sub
