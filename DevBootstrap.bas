@@ -226,6 +226,61 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 '   Helper Functions
 ' =============================================================================
+Public Sub ImportComponent( _
+            ByVal a_ComponentPath As String)
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".ImportComponent()"
+    ' モジュール名を取得
+    Dim modName As String
+    modName = ExtractModuleName(a_ComponentPath)
+    Dim comp As Object
+    Set comp = FindComponent(modName)
+    
+    ' 例外発生時は呼び出し元に再スロー
+    On Error GoTo HandleError
+    ' プロジェクト内に同名モジュールがない -> そのままpull
+    If comp Is Nothing Then
+        Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
+    ' プロジェクト内に同名モジュールあり -> コードのみpull
+    Else
+        ' リポジトリから正味のコード部分を取得
+        Dim conts As String, projCode As String
+        conts = ExtractCodeBody(a_ComponentPath)
+        ' プロジェクト内のモジュールからコード部分を取得
+        projCode = ExtractProjectCode(comp)
+        ' 両者の内容が一致していたらpullしない
+        If Not HasChanged(conts, projCode) Then Exit Sub
+        
+        ' 既存のコードを削除
+        '   - モジュールが空の場合をガード
+        If comp.CodeModule.CountOfLines > 0 Then
+            Call DeleteCodeLines(comp)
+        End If
+        ' プロジェクトのモジュールに闘魂注入
+        Call comp.CodeModule.AddFromString(conts)
+    End If
+    Exit Sub
+HandleError:
+    Dim errNum As Long, errSrc As String, errDesc As String
+    errNum = Err.Number
+    errSrc = Err.Source & "." & ERR_SOURCE
+    errDesc = Err.Description & vbCrLf & _
+        "(モジュール`" & modName & "`のpullに失敗した。)"
+    Debug.Print "Pull `" & modName & "` module failed."
+    Debug.Print "Number: " & errNum
+    Debug.Print "Source: " & errSrc
+    Debug.Print "Desc  : " & errDesc
+    ' 呼び出し元に再スロー
+    Call Err.Raise(errNum, errSrc, errDesc)
+End Sub
+
+' プロジェクト側のモジュールからコードを削除する
+Public Sub DeleteCodeLines( _
+            ByVal a_Component As Object)
+    If a_Component.CodeModule.CountOfLines < 1 Then Exit Sub
+    Call a_Component.CodeModule.DeleteLines( _
+        1, a_Component.CodeModule.CountOfLines)
+End Sub
+
 ' プロジェクトのモジュール（CodeModuleオブジェクト）からコードを抜き出す
 Public Function ExtractProjectCode( _
             ByVal a_Component As Object) As String
@@ -549,5 +604,100 @@ Public Sub RaiseError( _
         Number:=a_Number, _
         Source:=a_Source, _
         Description:=a_Description & "(ﾟдﾟ)､ < クソが。")
+End Sub
+
+Private Sub AA_Experiments(): End Sub
+' =============================================================================
+'   Experimental procedures
+' =============================================================================
+Private Sub Exp_ImportComponent_SkipIfNotChanged()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
+Private Sub Exp_HasChanged()
+    Dim a As String, b As String
+    a = "Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ち～ん（笑）""" & vbCrLf & _
+        "End Sub"
+    b = "   Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ち～ん（笑）""" & vbCrLf & _
+        "End Sub  " & vbCrLf & vbCrLf & vbLf
+    ' aとbは一致判定のはず
+    Debug.Assert Not HasChanged(a, b)
+    
+    a = "Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ち～ん（笑）""" & vbCrLf & _
+        "End Sub"
+    b = "   Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ぢ～ん（笑）""" & vbCrLf & _
+        "End Sub  " & vbCrLf & vbCrLf & vbLf
+    ' aとbは不一致判定のはず
+    Debug.Assert HasChanged(a, b)
+    
+    ' 空文字列の場合
+    Debug.Assert Not HasChanged("", "")
+    Debug.Assert HasChanged("", "Option Explicit")
+    
+    Debug.Print "Done!!"
+End Sub
+
+Private Sub Exp_ImportComponent()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
+Private Sub Exp_DeleteCodeLines()
+    Dim comp As Object
+    Set comp = FindComponent("ForPullTest")
+    'Set comp = FindComponent("SOEntry")
+    Call DeleteCodeLines(comp)
+End Sub
+
+Private Sub Exp_ExtractCodeBody()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print ExtractCodeBody(modPath)
+End Sub
+
+Private Sub Exp_FindCodeStartLine()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print FindCodeStartLine(modPath)
+End Sub
+
+Private Sub Exp_LoadComponentCode()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print LoadComponentCode(modPath)
+End Sub
+
+Private Sub Exp_ImportComponent_PullNotExistingModule()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
+Private Sub Exp_FindComponent()
+    Dim comp1 As Object, comp2 As Object
+    ' 存在するモジュール
+    Set comp1 = FindComponent("DevBootstrap")
+    Debug.Print comp1.Name
+    Debug.Assert comp1.Name = "DevBootstrap"
+    ' 存在しないモジュール
+    Set comp2 = FindComponent("pachinko123")
+    Debug.Assert comp2 Is Nothing
+End Sub
+
+Private Sub Exp_ExtractModuleName()
+    ' モジュール名を抽出する
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\DevBootstrap.bas"
+    Dim modName As String
+    modName = ExtractModuleName(modPath)
+    Debug.Print modName
+    Debug.Assert modName = "DevBootstrap"
 End Sub
 
