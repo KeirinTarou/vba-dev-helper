@@ -214,6 +214,227 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 '   Helper Functions
 ' =============================================================================
+' プロジェクトのモジュール（CodeModuleオブジェクト）からコードを抜き出す
+Public Function ExtractProjectCode( _
+            ByVal a_Component As Object) As String
+    Dim ret As String
+    ret = ""
+    
+    Dim cm As Object
+    Set cm = a_Component.CodeModule
+    If cm.CountOfLines < 1 Then GoTo Finally
+    
+    ret = cm.lines(1, cm.CountOfLines)
+Finally:
+    ExtractProjectCode = ret
+End Function
+    
+
+' コードを比較する
+Public Function HasChanged( _
+            ByVal a_ProjectCode As String, _
+            ByVal a_RepositoryCode As String) As Boolean
+    Dim a As String, b As String
+    a = NormalizeCode(a_ProjectCode)
+    b = NormalizeCode(a_RepositoryCode)
+    HasChanged = (a <> b)
+End Function
+
+' コードを正規化する
+Public Function NormalizeCode( _
+            ByVal a_Code As String) As String
+    Dim ret As String
+    
+    ' 両端のスペースをトリム
+    ret = Trim(a_Code)
+    ' 改行を統一教会する
+    ret = Replace(ret, vbCrLf, vbLf)
+    ret = Replace(ret, vbCr, vbLf)
+    ' 末尾の改行を削除
+    Do While (Right$(ret, 1) = vbLf)
+        ret = Left$(ret, Len(ret) - 1)
+    Loop
+    ' 両端のスペースをトリム
+    ret = Trim(ret)
+    
+    NormalizeCode = ret
+End Function
+
+' モジュールから、コードの正味の部分のみ取り出す
+Public Function ExtractCodeBody( _
+            ByVal a_ComponentPath As String) As String
+    Dim ret As String
+    
+    Dim conts As String, startLn As Long
+    conts = LoadComponentCode(a_ComponentPath)
+    startLn = FindCodeStartLine(a_ComponentPath)
+    Dim codeArr As Variant
+    codeArr = Split(conts, vbCrLf)
+    
+    Dim i As Long
+    For i = startLn - 1 To UBound(codeArr)
+        If ret <> "" Then ret = ret & vbCrLf
+        ret = ret & codeArr(i)
+    Next
+    
+    ExtractCodeBody = ret
+End Function
+
+' モジュールから取り出したコードの正味の開始位置（行）を取得する
+'   - `Attribute`で始まる行の最後の行（とそれに続く空行）までが
+'     ヘッダ情報部分
+Public Function FindCodeStartLine( _
+            ByVal a_ComponentPath As String) As Long
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".FindCodeStartLine()"
+    Dim ret As Long
+    ret = 0
+    
+    Dim conts As String
+    conts = LoadComponentCode(a_ComponentPath)
+    Dim i As Long, codeArr As Variant
+    codeArr = Split(conts, vbCrLf)
+    Dim foundAttr As Boolean
+    foundAttr = False
+    For i = LBound(codeArr) To UBound(codeArr)
+        If Left$(codeArr(i), Len("Attribute ")) = "Attribute " Then
+            foundAttr = True
+            GoTo Continue
+        End If
+        If Not foundAttr Then GoTo Continue
+        ' 空行はスキップ
+        If Len(Trim$(codeArr(i))) = 0 Then GoTo Continue
+        ' ここに来た時点で`Attribute`で始まる行を1つは通過済み
+        ' かつ`Attribute `で始まらない
+        ' かつ空行でもない
+        '   -> この行から正味のコード開始
+        ' Split()で作った配列は`0`始まりなので`1`を足して補正
+        ret = i + 1
+        ' ここで行番号を返却
+        GoTo Finally
+Continue:
+    Next
+    ' `Attribute`で始まる行がなかった -> 異常 -> 例外スロー
+    If Not foundAttr Then _
+        Call RaiseError( _
+            ERR_INVALID_FILE, _
+            ERR_SOURCE, _
+            "`Attribute`がない。VBAのモジュールファイルではないようだ。")
+    ' 返り値が`1`以下になる
+    If ret <= 1 Then _
+        Call RaiseError( _
+            ERR_INVALID_FILE, _
+            ERR_SOURCE, _
+            "コードの開始位置が1行目以下であるはずがない。")
+Finally:
+    FindCodeStartLine = ret
+End Function
+
+' 指定したモジュールファイルから、純粋なコード部分のみ取り出す
+Public Function LoadComponentCode( _
+            ByVal a_ComponentPath As String) As String
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".LoadComponentCode()"
+    Dim ret As String
+    
+    On Error GoTo HandleError:
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Dim ts As Object
+    Set ts = fso.OpenTextFile(a_ComponentPath, ForReading)
+    ret = ts.ReadAll()
+    GoTo Finally
+    
+    Dim errNum As Long, errSrc As String, errDesc As String
+    errNum = 0
+HandleError:
+    errNum = Err.Number
+    errSrc = Err.Source
+    errDesc = Err.Description
+    Debug.Print "Load """ & a_ComponentPath & """ failed: "
+    Debug.Print vbTab & "Number: " & errNum
+    Debug.Print vbTab & "Source: " & errSrc
+    Debug.Print vbTab & "Desc  : " & errDesc
+Finally:
+    If Not ts Is Nothing Then
+        Call ts.Close
+        Set ts = Nothing
+    End If
+    ' 例外発生時は呼び出し元に再スロー
+    If errNum <> 0 Then Call Err.Raise(errNum, errSrc, errDesc)
+    LoadComponentCode = ret
+End Function
+            
+
+' 指定した名前のコンポーネントを取得する（なければNothing）
+Public Function FindComponent( _
+            ByVal a_ComponentName As String) As Object
+    Dim ret As Object
+    Set ret = Nothing
+    
+    Dim comp As Object
+    For Each comp In ThisWorkbook.VBProject.VBComponents
+        If comp.Name = a_ComponentName Then
+            Set ret = comp
+            GoTo Finally
+        End If
+    Next
+    
+Finally:
+    Set FindComponent = ret
+End Function
+
+' モジュールファイルからモジュール名を取り出す
+Public Function ExtractModuleName( _
+            ByVal a_ComponentPath As String) As String
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".ExtractModuleName"
+    Dim ret As String
+    
+    Dim f As Integer
+    f = FreeFile()
+    
+    Dim ln As String
+    Dim p1 As Long, p2 As Long
+    
+    Open a_ComponentPath For Input As #f
+    
+    Do Until EOF(f)
+        Line Input #f, ln
+        
+        If Left$(ln, Len("Attribute VB_Name")) = "Attribute VB_Name" Then
+            ' 先頭から`"`を探す
+            p1 = InStr(ln, """")
+            ' 末尾から`"`を探す
+            p2 = InStrRev(ln, """")
+            
+            ' `"`がない or `"`が閉じられていない -> 異常
+            '   -> 例外スロー
+            If p1 = 0 Or p1 = p2 Then
+                Close #f
+                Call RaiseError( _
+                    ERR_INVALID_ARGUMENT, _
+                    ERR_SOURCE, _
+                    "VB_Name属性が壊れている。")
+            End If
+            ' `""`で囲まれた中身（＝モジュール名）をスライス
+            ret = Mid$(ln, p1 + 1, p2 - p1 - 1)
+            
+            ' ファイルを閉じてモジュール名を返す
+            Close #f
+            GoTo Finally
+        End If
+    Loop
+    
+    ' ここへ到達 -> モジュール名が取得できなかった -> 異常事態
+    '   -> 例外スロー
+    Close #f
+    Call RaiseError( _
+        ERR_NOT_FOUND, _
+        ERR_SOURCE, _
+        "モジュール名が見つからなかった。")
+    
+Finally:
+    ExtractModuleName = ret
+End Function
+
 Private Sub RemoveDevModules()
     ' dev_helper関係モジュール（本モジュール以外）をポアする
     '   - Documentモジュール、フォームモジュールは一旦除外
