@@ -12,14 +12,67 @@ Private Const DOC_MOD As String = "doc_mod\"
 ' SharePoint上のファイルかどうか
 Private m_OnSharePoint As Boolean
 
-' エクスポート成否カウント用
+' エクスポート/インポート成否カウント用
 Private m_SucceededCount As Long
 Private m_FailedCount As Long
+Private m_SkippedCount As Long
+
+' 警告表示用
+Private m_Warnings As String
 
 Private m_fso As Object
 ' =============================================================================
 '   公開API
 ' =============================================================================
+Public Sub ImportComponentsRepository()
+    Set m_fso = CreateObject("Scripting.FileSystemObject")
+    
+    ' SharePoint上のファイルのときはフラグを立てる
+    If Left(ThisWorkbook.Path, 5) = "https" Then
+        m_OnSharePoint = True
+    Else
+        m_OnSharePoint = False
+    End If
+    
+    ' リポジトリのパスを取得
+    Dim repodir As String
+    ' SharePoint上のファイルのときは、ユーザの「ドキュメント」フォルダの
+    ' `vba_repositories`フォルダ直下にあるブック名のフォルダがリポジトリ
+    ' のルートフォルダ、という運用
+    If m_OnSharePoint Then
+        Dim usrDir As String, projName As String
+        usrDir = VBA.Interaction.Environ("USERPROFILE") & "\Documents"
+        projName = m_fso.GetBaseName(ThisWorkbook.Name)
+        ' ユーザの「ドキュメント」フォルダ直下の`vba_repositories`フォルダ
+        Dim parentDir As String
+        parentDir = usrDir & "\" & "vba_repositories"
+        repodir = parentDir & "\" & projName & "\"
+    ' ローカルファイルのときは、隣の既定名のフォルダがリポジトリのルート
+    Else
+        repodir = ThisWorkbook.Path & "\" & REPO_NAME & "\"
+    End If
+    
+    ' カウンタを初期化
+    m_SucceededCount = 0
+    m_FailedCount = 0
+    m_SkippedCount = 0
+    ' 警告を初期化
+    m_Warnings = ""
+    
+    ' モジュールのコードをリポジトリからpull
+    Call ImportComponents(repodir)
+    
+    ' サマリを表示
+    Debug.Print String(40, "-")
+    Debug.Print "Summary: "
+    Debug.Print vbTab & "Pull succeeded: " & CStr(m_SucceededCount) & " module(s)."
+    Debug.Print vbTab & "Pull failed   : " & CStr(m_FailedCount) & " module(s)."
+    Debug.Print vbTab & "Pull skipped  : " & CStr(m_SkippedCount) & " module(s)."
+    If m_Warnings = "" Then Exit Sub
+    Debug.Print "【Warning!!】"
+    Debug.Print m_Warnings
+End Sub
+
 Public Sub ExportComponentsToRepository()
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     
@@ -30,7 +83,7 @@ Public Sub ExportComponentsToRepository()
         m_OnSharePoint = False
     End If
     
-    Dim repoDir As String
+    Dim repodir As String
     ' SharePoint上のファイルのときは、ユーザの「ドキュメント」フォルダに
     ' リポジトリフォルダを作る
     If m_OnSharePoint Then
@@ -42,40 +95,167 @@ Public Sub ExportComponentsToRepository()
         parentDir = usrDir & "\" & "vba_repositories"
         If Not m_fso.FolderExists(parentDir) Then _
             Call m_fso.CreateFolder(parentDir)
-        repoDir = parentDir & "\" & projName & "\"
-        If Not m_fso.FolderExists(repoDir) Then _
-            Call m_fso.CreateFolder(repoDir)
+        repodir = parentDir & "\" & projName & "\"
+        If Not m_fso.FolderExists(repodir) Then _
+            Call m_fso.CreateFolder(repodir)
     Else
-        repoDir = ThisWorkbook.Path & "\" & REPO_NAME & "\"
+        repodir = ThisWorkbook.Path & "\" & REPO_NAME & "\"
     End If
     
     ' リポジトリフォルダがなければ作る
     Dim stdDir As String, clsDir As String, frmDir As String, docDir As String
     With m_fso
-        If Not .FolderExists(repoDir) Then Call .CreateFolder(repoDir)
-        stdDir = repoDir & STD_MOD
+        If Not .FolderExists(repodir) Then Call .CreateFolder(repodir)
+        stdDir = repodir & STD_MOD
         If Not .FolderExists(stdDir) Then Call .CreateFolder(stdDir)
-        clsDir = repoDir & CLS_MOD
+        clsDir = repodir & CLS_MOD
         If Not .FolderExists(clsDir) Then Call .CreateFolder(clsDir)
-        frmDir = repoDir & FRM_MOD
+        frmDir = repodir & FRM_MOD
         If Not .FolderExists(frmDir) Then Call .CreateFolder(frmDir)
-        docDir = repoDir & DOC_MOD
+        docDir = repodir & DOC_MOD
         If Not .FolderExists(docDir) Then Call .CreateFolder(docDir)
     End With
     ' カウンタを初期化
     m_SucceededCount = 0
     m_FailedCount = 0
-    Call ExportComponents(repoDir)
+    m_SkippedCount = 0
+    Call ExportComponents(repodir)
     Debug.Print String(40, "-")
     Debug.Print "Summary: "
     Debug.Print vbTab & "Push succeeded: " & CStr(m_SucceededCount) & " module(s)."
     Debug.Print vbTab & "Push failed   : " & CStr(m_FailedCount) & " module(s)."
+    Debug.Print vbTab & "Push skipped  : " & CStr(m_SkippedCount) & " module(s)."
 End Sub
 
 Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 '   開発者向けヘルパ
 ' =============================================================================
+Private Sub ImportComponents( _
+            ByVal a_RepositoryPath As String)
+    ' プロジェクト内のモジュールのコードを
+    ' リポジトリ内のモジュールのコードで置き換える
+    '   - 内容が一致していたらスキップする
+        
+    '   - リポジトリのパスにフォルダがないときは例外スロー
+    '   - 想定外の利用法なので、例外を吐いて利用者に知らせる
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".ImportComponents"
+    If m_fso Is Nothing Then _
+        Set m_fso = CreateObject("Scripting.FileSystemObject")
+    ' リポジトリがない -> 例外スロー
+    If Not m_fso.FolderExists(a_RepositoryPath) Then _
+        Call RaiseError(ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
+    
+    ' ImportComponent()を呼び出す
+    Dim repo As Object, f As Object, fd As Object
+    ' リポジトリのScripting.Folderオブジェクトを取得
+    Set repo = m_fso.GetFolder(a_RepositoryPath)
+    For Each fd In repo.SubFolders
+        ' サブフォルダのサブフォルダは考慮外で良い（再帰不要）
+        For Each f In fd.Files
+            Dim ext As String
+            ext = LCase$(m_fso.GetExtensionName(f.Name))
+            If ext = "bas" Or ext = "cls" Or ext = "frm" Then
+                Call ImportComponent(f.Path)
+            End If
+        Next
+    Next
+End Sub
+
+Public Sub ImportComponent( _
+            ByVal a_ComponentPath As String)
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".ImportComponent()"
+    ' モジュール名を取得
+    Dim modName As String
+    modName = ExtractModuleName(a_ComponentPath)
+    Dim comp As Object
+    Set comp = FindComponent(modName)
+    
+    ' 例外発生時はメッセージを表示して握りつぶす
+    On Error GoTo HandleError
+    ' プロジェクト内に同名モジュールがない -> そのままpull
+    If comp Is Nothing Then
+        Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
+    ' プロジェクト内に同名モジュールあり -> コードのみpull
+    Else
+        Dim repoCode As String, projCode As String, _
+            hasCstAttr As Boolean
+        
+        ' プロジェクト内のモジュールからコード部分を取得
+        projCode = ExtractProjectCode(comp)
+        ' リポジトリから正味のコード部分を取得
+        '   - カスタムAttributeを取り除いて比較する
+        hasCstAttr = HasCustomAttribute(a_ComponentPath)
+        ' カスタムAttributeがあるときは取り除いて取得
+        repoCode = ExtractCodeBody(a_ComponentPath, hasCstAttr)
+        ' カスタムAttributeの変更が同期されない旨、警告を表示する
+        If hasCstAttr Then
+            If m_Warnings <> "" Then m_Warnings = m_Warnings & vbCrLf
+            m_Warnings = _
+                m_Warnings & _
+                vbTab & "`" & modName & "`" & _
+                "のカスタムAttributeに変更があっても同期されない。"
+        End If
+        ' 両者の内容が一致していたらpullしない
+        If Not HasChanged(projCode, repoCode) Then
+            ' スキップカウンタをインクリメント
+            Debug.Print "Skipped: " & modName
+            m_SkippedCount = m_SkippedCount + 1
+            Exit Sub
+        End If
+        ' カスタムAttributeの有無を判定
+        '   - カスタムAttributeあり -> モジュールをまるごと差し替える
+        '   - カスタムAttributeなし -> コードのみ差し替える
+        If hasCstAttr Then
+            ' モジュールのまるごと差し替え
+            ' ただし、ドキュメントモジュールはポアできないので、警告を表示してスキップ
+            If comp.Type = vbext_ct_Document Then
+                Debug.Print "Skipped: " & modName
+                m_SkippedCount = m_SkippedCount + 1
+                If m_Warnings <> "" Then m_Warnings = m_Warnings & vbCrLf
+                m_Warnings = _
+                    m_Warnings & _
+                    vbTab & "`" & modName & "`" & _
+                    "にはカスタムAttributeがあるため自動同期不可。" & vbCrLf & _
+                    vbTab & vbTab & "手動でインポートしやがれクズが。(ﾟдﾟ)､ﾍﾟｯ"
+                Exit Sub
+            End If
+            
+            ' 既存モジュールをポア
+            Call ThisWorkbook.VBProject.VBComponents.Remove(comp)
+            ' リポジトリのモジュールをインポート
+            Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
+        Else
+            ' コードのみ差し替え
+            ' 既存のコードを削除
+            '   - モジュールが空の場合をガード
+            If comp.CodeModule.CountOfLines > 0 Then
+                Call DeleteCodeLines(comp)
+            End If
+            ' プロジェクトのモジュールに闘魂注入
+            Call comp.CodeModule.AddFromString(repoCode)
+        End If
+    End If
+    ' 成功カウンタをインクリメント
+    Debug.Print "Pulled: " & modName
+    m_SucceededCount = m_SucceededCount + 1
+    Exit Sub
+HandleError:
+    Dim errNum As Long, errSrc As String, errDesc As String
+    errNum = Err.Number
+    errSrc = Err.Source & "." & ERR_SOURCE
+    errDesc = Err.Description & vbCrLf & _
+        "(モジュール`" & modName & "`のpullに失敗した。)"
+    Debug.Print "Pull `" & modName & "` module failed."
+    Debug.Print "Number: " & errNum
+    Debug.Print "Source: " & errSrc
+    Debug.Print "Desc  : " & errDesc
+    ' 失敗カウンタをインクリメント
+    m_FailedCount = m_FailedCount + 1
+    ' 例外は握りつぶす
+    Call Err.Clear
+End Sub
+
 Private Sub ExportComponents( _
             ByVal a_RepositoryPath As String)
     ' プロジェクトの全モジュールをリポジトリにエクスポートする
@@ -178,6 +358,22 @@ Private Function OutputDirPath( _
 End Function
 
 Private Sub AA_Experiments(): End Sub
+' =============================================================================
+'   Experimental procedures
+' =============================================================================
+Private Sub Exp_ImportComponent_SkipIfNotChanged()
+    ' モジュールインポート時、同内容ならスキップする
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
+Private Sub Exp_ImportComponent()
+    ' モジュールをインポートする
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
 
 Private Sub Exp_ExportModules()
     ' プロジェクトの全モジュールをエクスポートする
@@ -218,4 +414,6 @@ Private Sub Exp_EnumerateCodeModules()
         Debug.Print comp.Name & ": " & comp.CodeModule.CountOfLines & "line(s)."
     Next
 End Sub
+
+
 

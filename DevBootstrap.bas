@@ -4,7 +4,7 @@ Option Explicit
 ' =============================================================================
 '   dev_helper関係モジュールpush・pull用モジュール
 ' =============================================================================
-
+' VBExtention
 Public Enum vbext_CodePaneView
     vbext_cv_ProcedureView = 0
     vbext_cv_FullModuleView = 1
@@ -69,6 +69,44 @@ Public Enum vbext_WindowType
     vbext_wt_ToolWindow = 15
 End Enum
 
+' FileSystemObject
+Public Enum SpecialFolderConst
+  WindowsFolder = 0
+  SystemFolder = 1
+  TemporaryFolder = 2
+End Enum
+
+Public Enum StandardStreamTypes
+  StdIn = 0
+  StdOut = 1
+  StdErr = 2
+End Enum
+
+Public Enum IOMode
+  ForReading = 1
+  ForWriting = 2
+  ForAppending = 8
+End Enum
+
+Public Enum Tristate
+  TristateFalse = 0
+  TristateMixed = -2
+  TristateTrue = -1
+  TristateUseDefault = -2
+End Enum
+
+Public Enum FileAttributes
+  Normal = 0
+  ReadOnly = 1
+  Hidden = 2
+  System = 4
+  Volume = 8
+  Directory = &H10
+  Archive = &H20
+  Alias = &H400
+  Compressed = &H800
+End Enum
+
 Public Enum CutomErrorEnum
     ' 10000～: 引数・値
     ERR_INVALID_ARGUMENT = 10001
@@ -85,6 +123,7 @@ Public Enum CutomErrorEnum
     ERR_FILE_NOT_FOUND = 10301
     ERR_FILE_ALREADY_EXISTS = 10302
     ERR_IO_ERROR = 10303
+    ERR_INVALID_FILE = 10304
     ' 10400～: 権限
     ERR_PERMISSION_DENIED = 10401
     ' 10500～: 想定外
@@ -114,11 +153,11 @@ Private Sub PushDevModules()
     ' dev_helperプロジェクト関係のモジュールを所定フォルダに全push
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     
-    Dim repoDir As String
-    repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
+    Dim repodir As String
+    repodir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
     ' `.dev_helper`フォルダがなかったら作る
-    If Not m_fso.FolderExists(repoDir) Then
-        Call m_fso.CreateFolder(repoDir)
+    If Not m_fso.FolderExists(repodir) Then
+        Call m_fso.CreateFolder(repodir)
     End If
     Dim comp As Object, cn As String, f As String, p As String
     ' 接頭辞`Dev`のもののみリポジトリに送り込む
@@ -127,10 +166,26 @@ Private Sub PushDevModules()
         If Not IsDevHelper(cn) Then GoTo Continue
         ' エクスポート用ファイルパス取得
         f = cn & ComponentExtension(comp.Type)
-        p = repoDir & f
-        ' 既存の同名ファイルがあればポア
+        p = repodir & f
+        ' 既存の同名ファイルがあるとき
         '   - DeleteFile(filespec, [force])
-        If m_fso.FileExists(p) Then Call m_fso.DeleteFile(p, True)
+        If m_fso.FileExists(p) Then
+            ' プロジェクト側とリポジトリ側のコードを取得
+            Dim projCode As String, repoCode As String
+            projCode = ExtractProjectCode(comp)
+            repoCode = ExtractCodeBody(p)
+            ' 内容が同じだったらスキップ
+            If Not HasChanged(projCode, repoCode) Then
+                Debug.Print "Skipped: " & f
+                GoTo Continue
+            ' 内容が異なっていたら、既存ファイルをポア
+            Else
+                Call m_fso.DeleteFile(p, True)
+            End If
+        End If
+        ' 既存の同名ファイルがない場合
+        ' 既存の同名ファイルがあり、内容が異なる場合
+        '   -> エクスポート
         Call comp.Export(p)
         Debug.Print "Pushed: " & f
 Continue:
@@ -150,12 +205,11 @@ Private Sub PullDevModules()
     ' dev_helperプロジェクト関係のモジュールを一括pull
     '   - このモジュールだけは手動pull
     Set m_fso = CreateObject("Scripting.FileSystemObject")
-    ' 一旦、dev_helper関係モジュールをポア
-    Call RemoveDevModules
-    Dim repoDir As String
-    repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
+    
+    Dim repodir As String
+    repodir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
     Dim f As Object, ext As String, bs As String
-    For Each f In m_fso.GetFolder(repoDir).Files
+    For Each f In m_fso.GetFolder(repodir).Files
         ext = LCase$(m_fso.GetExtensionName(f.Path))
         bs = m_fso.GetBaseName(f.Path)
         ' `.bas`、`.cls`以外はスルー
@@ -164,9 +218,29 @@ Private Sub PullDevModules()
         If Not IsDevHelper(bs) Then GoTo Continue
         ' このモジュールもスルー
         If bs = SELF_MOD_NAME Then GoTo Continue
-        ' ここまで来たらインポート
-        Call ThisWorkbook.VBProject.VBComponents.Import(f.Path)
-        Debug.Print "Imported: " & f.Name
+        ' ここまで来たらインポート候補
+        Dim repoCode As String, comp As Object, projCode As String
+        ' リポジトリのコードを取得
+        '   - 全体を取得 -> 正味のコード部分を取得
+        repoCode = ExtractCodeBody(f.Path)
+        ' モジュールのコードを取得
+        Set comp = FindComponent(bs)
+        ' 対応するモジュールがプロジェクト側にない -> pullしてContinue
+        If comp Is Nothing Then
+            Call ImportComponent(f.Path)
+            Debug.Print "Pulled: " & f.Name
+            GoTo Continue
+        End If
+        projCode = ExtractProjectCode(comp)
+        ' モジュールのコードとリポジトリのコードを比較
+        If HasChanged(projCode, repoCode) Then
+            ' 不一致だったらコードを闘魂注入
+            Call ImportComponent(f.Path)
+            Debug.Print "Pulled: " & f.Name
+        Else
+            ' 一致していたらスキップ
+            Debug.Print "Skipped: " & f.Name
+        End If
 Continue:
     Next
 End Sub
@@ -175,29 +249,264 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 '   Helper Functions
 ' =============================================================================
-Private Sub RemoveDevModules()
-    ' dev_helper関係モジュール（本モジュール以外）をポアする
-    '   - Documentモジュール、フォームモジュールは一旦除外
-    Dim i As Long, comp As Object, cn As String
-    With ThisWorkbook.VBProject.VBComponents
-        ' コレクション要素の削除になるので逆順ループ
-        For i = .Count To 1 Step -1
-            Set comp = .Item(i)
-            cn = comp.Name
-            ' Documentモジュール、フォームモジュールはスキップ
-            If comp.Type = vbext_ct_ActiveXDesigner Then GoTo Continue
-            If comp.Type = vbext_ct_Document Then GoTo Continue
-            If comp.Type = vbext_ct_MSForm Then GoTo Continue
-            ' このモジュールはスキップ
-            If cn = SELF_MOD_NAME Then GoTo Continue
-            ' dev_helper以外はスキップ
-            If Not IsDevHelper(cn) Then GoTo Continue
-            ' ここまで来たらポアしても良い
-            Call .Remove(comp)
-Continue:
-        Next
-    End With
+' プロジェクト側のモジュールからコードを削除する
+Public Sub DeleteCodeLines( _
+            ByVal a_Component As Object)
+    If a_Component.CodeModule.CountOfLines < 1 Then Exit Sub
+    Call a_Component.CodeModule.DeleteLines( _
+        1, a_Component.CodeModule.CountOfLines)
 End Sub
+
+' プロジェクトのモジュール（CodeModuleオブジェクト）からコードを抜き出す
+Public Function ExtractProjectCode( _
+            ByVal a_Component As Object) As String
+    Dim ret As String
+    ret = ""
+    
+    Dim cm As Object
+    Set cm = a_Component.CodeModule
+    If cm.CountOfLines < 1 Then GoTo Finally
+    
+    ret = cm.lines(1, cm.CountOfLines)
+Finally:
+    ExtractProjectCode = ret
+End Function
+    
+' コードを比較する
+Public Function HasChanged( _
+            ByVal a_ProjectCode As String, _
+            ByVal a_RepositoryCode As String) As Boolean
+    Dim a As String, b As String
+    a = NormalizeCode(a_ProjectCode)
+    b = NormalizeCode(a_RepositoryCode)
+    HasChanged = (a <> b)
+End Function
+
+' コードを正規化する
+Public Function NormalizeCode( _
+            ByVal a_Code As String) As String
+    Dim ret As String
+    
+    ' 両端のスペースをトリム
+    ret = Trim(a_Code)
+    ' 改行を統一教会する
+    ret = Replace(ret, vbCrLf, vbLf)
+    ret = Replace(ret, vbCr, vbLf)
+    ' 末尾の改行を削除
+    Do While (Right$(ret, 1) = vbLf)
+        ret = Left$(ret, Len(ret) - 1)
+    Loop
+    ' 両端のスペースをトリム
+    ret = Trim(ret)
+    
+    NormalizeCode = ret
+End Function
+
+' モジュールにカスタム属性があるかどうか判定する
+' モジュールから、コードの正味の部分のみ取り出す
+Public Function HasCustomAttribute( _
+            ByVal a_ComponentPath As String) As Boolean
+    Dim ret As Boolean
+    ret = False
+    
+    Dim conts As String, startLn As Long
+    conts = LoadComponentCode(a_ComponentPath)
+    startLn = FindCodeStartLine(a_ComponentPath)
+    Dim codeArr As Variant
+    codeArr = Split(conts, vbCrLf)
+    
+    Dim i As Long
+    For i = startLn - 1 To UBound(codeArr)
+        If Left$(codeArr(i), Len("Attribute ")) = "Attribute " Then
+            ret = True
+            GoTo Finally
+        End If
+    Next
+Finally:
+    HasCustomAttribute = ret
+End Function
+
+' モジュールから、コードの正味の部分のみ取り出す
+'   - カスタム属性を除いた比較をするときは第2引数をTrueにする
+Public Function ExtractCodeBody( _
+            ByVal a_ComponentPath As String, _
+   Optional ByVal a_SkipAttribute As Boolean = False) As String
+    Dim ret As String
+    
+    Dim conts As String, startLn As Long
+    conts = LoadComponentCode(a_ComponentPath)
+    startLn = FindCodeStartLine(a_ComponentPath)
+    Dim codeArr As Variant
+    codeArr = Split(conts, vbCrLf)
+    
+    Dim i As Long, s As String
+    For i = startLn - 1 To UBound(codeArr)
+        ' カスタム属性スキップモード時は`Attribute `で始まる行をスキップ
+        s = codeArr(i)
+        If a_SkipAttribute _
+            And Left$(s, Len("Attribute ")) = "Attribute " Then GoTo Continue
+        If ret <> "" Then ret = ret & vbCrLf
+        ret = ret & s
+Continue:
+    Next
+    
+    ExtractCodeBody = ret
+End Function
+
+' モジュールから取り出したコードの正味の開始位置（行）を取得する
+'   - `Attribute`で始まる行の最後の行（とそれに続く空行）までが
+'     ヘッダ情報部分
+Public Function FindCodeStartLine( _
+            ByVal a_ComponentPath As String) As Long
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".FindCodeStartLine()"
+    Dim ret As Long
+    ret = 0
+    
+    Dim conts As String
+    conts = LoadComponentCode(a_ComponentPath)
+    Dim i As Long, codeArr As Variant
+    codeArr = Split(conts, vbCrLf)
+    Dim foundAttr As Boolean
+    foundAttr = False
+    For i = LBound(codeArr) To UBound(codeArr)
+        If Left$(codeArr(i), Len("Attribute ")) = "Attribute " Then
+            foundAttr = True
+            GoTo Continue
+        End If
+        If Not foundAttr Then GoTo Continue
+        ' 空行はスキップ
+        If Len(Trim$(codeArr(i))) = 0 Then GoTo Continue
+        ' ここに来た時点で`Attribute`で始まる行を1つは通過済み
+        ' かつ`Attribute `で始まらない
+        ' かつ空行でもない
+        '   -> この行から正味のコード開始
+        ' Split()で作った配列は`0`始まりなので`1`を足して補正
+        ret = i + 1
+        ' ここで行番号を返却
+        GoTo Finally
+Continue:
+    Next
+    ' `Attribute`で始まる行がなかった -> 異常 -> 例外スロー
+    If Not foundAttr Then _
+        Call RaiseError( _
+            ERR_INVALID_FILE, _
+            ERR_SOURCE, _
+            "`Attribute`がない。VBAのモジュールファイルではないようだ。")
+    ' 返り値が`1`以下になる
+    If ret <= 1 Then _
+        Call RaiseError( _
+            ERR_INVALID_FILE, _
+            ERR_SOURCE, _
+            "コードの開始位置が1行目以下であるはずがない。")
+Finally:
+    FindCodeStartLine = ret
+End Function
+
+' 指定したモジュールファイルから、純粋なコード部分のみ取り出す
+Public Function LoadComponentCode( _
+            ByVal a_ComponentPath As String) As String
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".LoadComponentCode()"
+    Dim ret As String
+    
+    On Error GoTo HandleError:
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Dim ts As Object
+    Set ts = fso.OpenTextFile(a_ComponentPath, ForReading)
+    ret = ts.ReadAll()
+    GoTo Finally
+    
+    Dim errNum As Long, errSrc As String, errDesc As String
+    errNum = 0
+HandleError:
+    errNum = Err.Number
+    errSrc = Err.Source
+    errDesc = Err.Description
+    Debug.Print "Load """ & a_ComponentPath & """ failed: "
+    Debug.Print vbTab & "Number: " & errNum
+    Debug.Print vbTab & "Source: " & errSrc
+    Debug.Print vbTab & "Desc  : " & errDesc
+Finally:
+    If Not ts Is Nothing Then
+        Call ts.Close
+        Set ts = Nothing
+    End If
+    ' 例外発生時は呼び出し元に再スロー
+    If errNum <> 0 Then Call Err.Raise(errNum, errSrc, errDesc)
+    LoadComponentCode = ret
+End Function
+            
+
+' 指定した名前のコンポーネントを取得する（なければNothing）
+Public Function FindComponent( _
+            ByVal a_ComponentName As String) As Object
+    Dim ret As Object
+    Set ret = Nothing
+    
+    Dim comp As Object
+    For Each comp In ThisWorkbook.VBProject.VBComponents
+        If comp.Name = a_ComponentName Then
+            Set ret = comp
+            GoTo Finally
+        End If
+    Next
+    
+Finally:
+    Set FindComponent = ret
+End Function
+
+' モジュールファイルからモジュール名を取り出す
+Public Function ExtractModuleName( _
+            ByVal a_ComponentPath As String) As String
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".ExtractModuleName"
+    Dim ret As String
+    
+    Dim f As Integer
+    f = FreeFile()
+    
+    Dim ln As String
+    Dim p1 As Long, p2 As Long
+    
+    Open a_ComponentPath For Input As #f
+    
+    Do Until EOF(f)
+        Line Input #f, ln
+        
+        If Left$(ln, Len("Attribute VB_Name")) = "Attribute VB_Name" Then
+            ' 先頭から`"`を探す
+            p1 = InStr(ln, """")
+            ' 末尾から`"`を探す
+            p2 = InStrRev(ln, """")
+            
+            ' `"`がない or `"`が閉じられていない -> 異常
+            '   -> 例外スロー
+            If p1 = 0 Or p1 = p2 Then
+                Close #f
+                Call RaiseError( _
+                    ERR_INVALID_ARGUMENT, _
+                    ERR_SOURCE, _
+                    "VB_Name属性が壊れている。")
+            End If
+            ' `""`で囲まれた中身（＝モジュール名）をスライス
+            ret = Mid$(ln, p1 + 1, p2 - p1 - 1)
+            
+            ' ファイルを閉じてモジュール名を返す
+            Close #f
+            GoTo Finally
+        End If
+    Loop
+    
+    ' ここへ到達 -> モジュール名が取得できなかった -> 異常事態
+    '   -> 例外スロー
+    Close #f
+    Call RaiseError( _
+        ERR_NOT_FOUND, _
+        ERR_SOURCE, _
+        "モジュール名が見つからなかった。")
+    
+Finally:
+    ExtractModuleName = ret
+End Function
 
 Public Function IsDevHelper( _
             ByVal a_ComponentName As String) As Boolean
@@ -278,5 +587,113 @@ Public Sub RaiseError( _
         Number:=a_Number, _
         Source:=a_Source, _
         Description:=a_Description & "(ﾟдﾟ)､ < クソが。")
+End Sub
+
+Private Sub AA_Experiments(): End Sub
+' =============================================================================
+'   Experimental procedures
+' =============================================================================
+Private Sub Exp_HasCustomAttribute()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    ' ↓こっちのパスは常にあるとは限らないので、動作確認後はコメントアウト
+'    modPath = ThisWorkbook.Path & "\repo\cls_mod\Dictionary.cls"
+'     modPath = ThisWorkbook.Path & "\repo\doc_mod\Sh01Data.cls"
+    Debug.Print HasCustomAttribute(modPath)
+End Sub
+
+Private Sub Exp_HasChanged()
+    Dim a As String, b As String
+    a = "Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ち～ん（笑）""" & vbCrLf & _
+        "End Sub"
+    b = "   Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ち～ん（笑）""" & vbCrLf & _
+        "End Sub  " & vbCrLf & vbCrLf & vbLf
+    ' aとbは一致判定のはず
+    Debug.Assert Not HasChanged(a, b)
+    
+    a = "Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ち～ん（笑）""" & vbCrLf & _
+        "End Sub"
+    b = "   Private Sub Foo()" & vbCrLf & _
+        vbTab & "Debug.Print ""ぢ～ん（笑）""" & vbCrLf & _
+        "End Sub  " & vbCrLf & vbCrLf & vbLf
+    ' aとbは不一致判定のはず
+    Debug.Assert HasChanged(a, b)
+    
+    ' 空文字列の場合
+    Debug.Assert Not HasChanged("", "")
+    Debug.Assert HasChanged("", "Option Explicit")
+    
+    ' 次の検証用コードは開発用`dev_helper.xlsm`本体でしか再現しない
+    '   -> 検証が終わったらコメントアウト
+'    Dim modPath As String, modName As String
+'    modPath = ThisWorkbook.Path & "\repo\cls_mod\SqlQueryDef.cls"
+'    modName = ExtractModuleName(modPath)
+'    Dim comp As Object
+'    Set comp = FindComponent(modName)
+'    Dim projCode As String, repoCode As String
+'    projCode = ExtractProjectCode(comp)
+'    repoCode = ExtractCodeBody(modPath) ' <- カスタムAttributeごと取得
+'    ' 不一致のはず
+'    Debug.Assert HasChanged(projCode, repoCode)
+'    repoCode = ExtractCodeBody(modPath, True) ' <- カスタムAttribute除外
+'    ' 一致するはず
+'    Debug.Assert Not HasChanged(projCode, repoCode)
+    
+    Debug.Print "Done!!"
+End Sub
+
+Private Sub Exp_DeleteCodeLines()
+    Dim comp As Object
+    Set comp = FindComponent("ForPullTest")
+    'Set comp = FindComponent("SOEntry")
+    Call DeleteCodeLines(comp)
+End Sub
+
+Private Sub Exp_ExtractCodeBody()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print ExtractCodeBody(modPath)
+End Sub
+
+Private Sub Exp_FindCodeStartLine()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print FindCodeStartLine(modPath)
+End Sub
+
+Private Sub Exp_LoadComponentCode()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print LoadComponentCode(modPath)
+End Sub
+
+Private Sub Exp_ImportComponent_PullNotExistingModule()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
+Private Sub Exp_FindComponent()
+    Dim comp1 As Object, comp2 As Object
+    ' 存在するモジュール
+    Set comp1 = FindComponent("DevBootstrap")
+    Debug.Print comp1.Name
+    Debug.Assert comp1.Name = "DevBootstrap"
+    ' 存在しないモジュール
+    Set comp2 = FindComponent("pachinko123")
+    Debug.Assert comp2 Is Nothing
+End Sub
+
+Private Sub Exp_ExtractModuleName()
+    ' モジュール名を抽出する
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\DevBootstrap.bas"
+    Dim modName As String
+    modName = ExtractModuleName(modPath)
+    Debug.Print modName
+    Debug.Assert modName = "DevBootstrap"
 End Sub
 
