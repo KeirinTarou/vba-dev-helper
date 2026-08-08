@@ -521,7 +521,7 @@ Private Sub Exp_LoadComponentCode()
     Debug.Print String(40, "-")
     Debug.Print LoadComponentCode(modPath)
     Debug.Print String(40, "-")
-    Debug.Print "Exp_FindComponent() done!!"
+    Debug.Print "Exp_LoadComponentCode() done!!"
 End Sub
 
 Private Sub Exp_FindComponent()
