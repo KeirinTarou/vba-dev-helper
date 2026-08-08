@@ -244,7 +244,7 @@ Public Function FindCodeStartLine( _
     Dim ret As Long
     ret = 0
     
-    Dim conts As String
+    Dim conts As String ' `Contents`の略
     conts = LoadComponentCode(a_ComponentPath)
     Dim i As Long, codeArr As Variant
     codeArr = Split(conts, vbCrLf)
@@ -274,7 +274,7 @@ Continue:
             ERR_INVALID_FILE, _
             ERR_SOURCE, _
             "`Attribute`がない。VBAのモジュールファイルではないようだ。")
-    ' 返り値が`1`以下になる
+    ' 返り値が0以下になる
     If ret <= 1 Then _
         Call RaiseError( _
             ERR_INVALID_FILE, _
@@ -394,6 +394,9 @@ Private Sub AA_Experiments(): End Sub
 '   Experimental procedures
 ' =============================================================================
 Private Sub ExecuteAllExperiments()
+    ' 動作確認用プロシージャをまとめて実行
+    ' DevHelper一式がExcelの隣の`.dev_helper`フォルダに入っている前提
+    ' `ForPullTest`モジュールがある前提
     Call Exp_ExtractModuleName
     Call Exp_FindComponent
     Call Exp_ImportComponent_PullNotExistingModule
@@ -403,6 +406,13 @@ Private Sub ExecuteAllExperiments()
     Call Exp_DeleteCodeLines
     Call Exp_HasChanged
     Call Exp_HasCustomAttribute
+    Dim sp As String    ' Spacerの略
+    sp = vbCrLf & vbTab
+    Debug.Print "【Warning!!!!】"
+    Debug.Print vbTab & _
+        "`Exp_DeleteCodeLines()`により、`ForPullTest`が空になっている。" & _
+        sp & "`DevProjIO.ImportComponentsFromRepository()`実行、または" & _
+        sp & "手動で復元しておくこと。"
 End Sub
 
 Private Sub Exp_HasCustomAttribute()
@@ -507,5 +517,24 @@ Private Sub Exp_ExtractModuleName()
     modName = ExtractModuleName(modPath)
     Debug.Print modName
     Debug.Assert modName = "DevBootstrap"
+End Sub
+
+' まとめて実行対象外にする
+Private Sub Exp_EnumerateModuleNames()
+    ' プロジェクトにぶら下がるモジュール名とTypeを列挙する
+    Dim comp As Object
+    For Each comp In ThisWorkbook.VBProject.VBComponents
+        Debug.Print _
+            comp.Name & ": " & comp.Type & _
+            "(" & ComponentTypeName(comp.Type) & ")"
+    Next
+End Sub
+
+Private Sub Exp_EnumerateCodeModules()
+    ' コードモジュールの属性を表示する
+    Dim comp As Object
+    For Each comp In ThisWorkbook.VBProject.VBComponents
+        Debug.Print comp.Name & ": " & comp.CodeModule.CountOfLines & "line(s)."
+    Next
 End Sub
 
