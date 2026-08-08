@@ -9,7 +9,9 @@ The primary goal is to make VBA development feel similar to modern software deve
 - Export VBA source files into a repository
 - Manage them with Git
 - Review and edit them using modern editors such as VS Code
-- (Future) Import them back into VBA
+- Import source codes (or files) back into VBA
+
+DevHelper supports both individual and bulk import/export operations.
 
 This project values maintainability and simplicity over feature completeness.
 
@@ -94,6 +96,16 @@ Avoid unnecessary abbreviations.
 
 Keep procedures reasonably short.
 
+### Respect VBA/VBE limitations
+
+The VBIDE object model does not expose all information contained in exported VBA component files through `CodeModule`.
+
+The particular, custom `Attribute` lines may exist in exported module files but cannot be reliably manipulated through normal `CodeModule` operations.
+
+When custom attributes are involved, prefer solutions that respect this limitation rather than attempting to force uniform code-only import/export mechanism.
+
+Document modules also cannot be removed like ordinary modules. Do not assume that every `VBComponent` can be replaced programmatically.
+
 ---
 
 ## Error Handling
@@ -101,6 +113,10 @@ Keep procedures reasonably short.
 Use `RaiseError()` for programmer errors.
 
 Recoverable failures (such as individual export failures) should be reported without stopping the entire export process whenever practical.
+
+Bulk import/export operation should normally continue after an individual module failure.
+
+Individual failures should be reported and counted, with a summary presented after the operation.
 
 ---
 
