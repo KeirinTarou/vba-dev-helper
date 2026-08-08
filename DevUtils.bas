@@ -275,7 +275,7 @@ Continue:
             "`Attribute`がない。VBAのモジュールファイルではないようだ。")
     ' 返り値が1以下になる
     If ret <= 1 Then _
-        Call RaiseError( _
+        Call DevUtils.RaiseError( _
             ERR_INVALID_FILE, _
             ERR_SOURCE, _
             "コードの開始位置が1行目以下であるはずがない。")
@@ -407,6 +407,17 @@ Public Function ComponentExtension( _
     End Select
     ComponentExtension = ret
 End Function
+
+Public Sub RaiseError( _
+            a_Number As Long, _
+            a_Source As String, _
+            a_Description As String)
+    ' カスタム例外をスローする
+    Call Err.Raise( _
+        Number:=a_Number, _
+        Source:=a_Source, _
+        Description:=a_Description & "(ﾟдﾟ)､ < クソが。")
+End Sub
 
 Private Sub AA_Experiments(): End Sub
 ' =============================================================================

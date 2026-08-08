@@ -162,10 +162,10 @@ Public Function ComponentFolderName( _
         Case vbext_ct_MSForm: ret = "frm_mod"
         Case vbext_ct_Document: ret = "doc_mod"
         Case vbext_ct_ActiveXDesigner
-            Call RaiseError( _
+            Call DevUtils.RaiseError( _
                 ERR_NOT_SUPPORTED, ERR_SOURCE, "ActiveX Designer はサポート対象外である。")
         Case Else
-            Call RaiseError( _
+            Call DevUtils.RaiseError( _
                 ERR_INVALID_ARGUMENT, ERR_SOURCE, "不正な引数が渡された。")
     End Select
     ComponentFolderName = ret
@@ -183,21 +183,10 @@ Public Function ComponentTypeName( _
         Case vbext_ct_Document: ret = "Document Module"
         Case vbext_ct_ActiveXDesigner: ret = "ActiveX Designer"
         Case Else
-            Call RaiseError( _
+            Call DevUtils.RaiseError( _
                 ERR_INVALID_ARGUMENT, ERR_SOURCE, "不正な引数が渡された。")
     End Select
     ComponentTypeName = ret
 End Function
-
-Public Sub RaiseError( _
-            a_Number As Long, _
-            a_Source As String, _
-            a_Description As String)
-    ' カスタム例外をスローする
-    Call Err.Raise( _
-        Number:=a_Number, _
-        Source:=a_Source, _
-        Description:=a_Description & "(ﾟдﾟ)､ < クソが。")
-End Sub
 
 

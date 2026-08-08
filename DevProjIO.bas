@@ -146,7 +146,8 @@ Private Sub ImportComponents( _
         Set m_fso = CreateObject("Scripting.FileSystemObject")
     ' リポジトリがない -> 例外スロー
     If Not m_fso.FolderExists(a_RepositoryPath) Then _
-        Call RaiseError(ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
+        Call DevUtils.RaiseError( _
+            ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
     
     ' ImportComponent()を呼び出す
     Dim repo As Object, f As Object, fd As Object
@@ -269,7 +270,8 @@ Private Sub ExportComponents( _
         Set m_fso = CreateObject("Scripting.FileSystemObject")
     ' リポジトリがない -> 例外スロー
     If Not m_fso.FolderExists(a_RepositoryPath) Then _
-        Call RaiseError(ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
+        Call DevUtils.RaiseError( _
+            ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
     ' ExportComponent()を呼び出す
     Dim comp As Object, outDir As String
     For Each comp In ThisWorkbook.VBProject.VBComponents
@@ -293,7 +295,8 @@ Private Sub ExportComponent( _
         Set m_fso = CreateObject("Scripting.FileSystemObject")
     ' push先フォルダがない -> 例外スロー
     If Not m_fso.FolderExists(a_OutputDir) Then _
-        Call RaiseError(ERR_NOT_FOUND, ERR_SOURCE, "保存先フォルダが存在しない。")
+        Call DevUtils.RaiseError( _
+            ERR_NOT_FOUND, ERR_SOURCE, "保存先フォルダが存在しない。")
 
     ' エクスポートファイル名を取得 -> 保存先パス作成
     Dim f As String, p As String
@@ -364,10 +367,10 @@ Private Function OutputDirPath( _
         Case vbext_ct_MSForm: sf = FRM_MOD
         Case vbext_ct_Document: sf = DOC_MOD
         Case vbext_ct_ActiveXDesigner
-            Call RaiseError( _
+            Call DevUtils.RaiseError( _
                 ERR_NOT_SUPPORTED, ERR_SOURCE, "ActiveX Designerは非対応である。")
         Case Else
-            Call RaiseError( _
+            Call DevUtils.RaiseError( _
                 ERR_INVALID_ARGUMENT, ERR_SOURCE, "意味不明な引数が渡された。")
     End Select
     ' `a_RepositoryPath`のケツには必ず`\`が付いている
