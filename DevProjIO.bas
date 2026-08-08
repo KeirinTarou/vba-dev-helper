@@ -99,7 +99,6 @@ Public Sub ImportComponent( _
         repoCode = ExtractCodeBody(a_ComponentPath)
         ' 両者の内容が一致していたらpullしない
         If Not HasChanged(projCode, repoCode) Then Exit Sub
-        
         ' 既存のコードを削除
         '   - モジュールが空の場合をガード
         If comp.CodeModule.CountOfLines > 0 Then
@@ -232,6 +231,20 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
+Private Sub Exp_ImportComponent_SkipIfNotChanged()
+    ' モジュールインポート時、同内容ならスキップする
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
+Private Sub Exp_ImportComponent()
+    ' モジュールをインポートする
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
 Private Sub Exp_ExportModules()
     ' プロジェクトの全モジュールをエクスポートする
     Call ExportComponents(ThisWorkbook.Path & "\" & REPO_NAME)
@@ -271,4 +284,6 @@ Private Sub Exp_EnumerateCodeModules()
         Debug.Print comp.Name & ": " & comp.CodeModule.CountOfLines & "line(s)."
     Next
 End Sub
+
+
 

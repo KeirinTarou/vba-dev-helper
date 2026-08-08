@@ -205,8 +205,7 @@ Private Sub PullDevModules()
     ' dev_helperプロジェクト関係のモジュールを一括pull
     '   - このモジュールだけは手動pull
     Set m_fso = CreateObject("Scripting.FileSystemObject")
-    ' 一旦、dev_helper関係モジュールをポア
-    Call RemoveDevModules
+    
     Dim repoDir As String
     repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
     Dim f As Object, ext As String, bs As String
@@ -219,9 +218,29 @@ Private Sub PullDevModules()
         If Not IsDevHelper(bs) Then GoTo Continue
         ' このモジュールもスルー
         If bs = SELF_MOD_NAME Then GoTo Continue
-        ' ここまで来たらインポート
-        Call ThisWorkbook.VBProject.VBComponents.Import(f.Path)
-        Debug.Print "Imported: " & f.Name
+        ' ここまで来たらインポート候補
+        Dim repoCode As String, comp As Object, projCode As String
+        ' リポジトリのコードを取得
+        '   - 全体を取得 -> 正味のコード部分を取得
+        repoCode = ExtractCodeBody(f.Path)
+        ' モジュールのコードを取得
+        Set comp = FindComponent(bs)
+        ' 対応するモジュールがプロジェクト側にない -> pullしてContinue
+        If comp Is Nothing Then
+            Call ImportComponent(f.Path)
+            Debug.Print "Pulled: " & f.Name
+            GoTo Continue
+        End If
+        projCode = ExtractProjectCode(comp)
+        ' モジュールのコードとリポジトリのコードを比較
+        If HasChanged(projCode, repoCode) Then
+            ' 不一致だったらコードを闘魂注入
+            Call ImportComponent(f.Path)
+            Debug.Print "Pulled: " & f.Name
+        Else
+            ' 一致していたらスキップ
+            Debug.Print "Skipped: " & f.Name
+        End If
 Continue:
     Next
 End Sub
@@ -458,30 +477,6 @@ Finally:
     ExtractModuleName = ret
 End Function
 
-Private Sub RemoveDevModules()
-    ' dev_helper関係モジュール（本モジュール以外）をポアする
-    '   - Documentモジュール、フォームモジュールは一旦除外
-    Dim i As Long, comp As Object, cn As String
-    With ThisWorkbook.VBProject.VBComponents
-        ' コレクション要素の削除になるので逆順ループ
-        For i = .Count To 1 Step -1
-            Set comp = .Item(i)
-            cn = comp.Name
-            ' Documentモジュール、フォームモジュールはスキップ
-            If comp.Type = vbext_ct_ActiveXDesigner Then GoTo Continue
-            If comp.Type = vbext_ct_Document Then GoTo Continue
-            If comp.Type = vbext_ct_MSForm Then GoTo Continue
-            ' このモジュールはスキップ
-            If cn = SELF_MOD_NAME Then GoTo Continue
-            ' dev_helper以外はスキップ
-            If Not IsDevHelper(cn) Then GoTo Continue
-            ' ここまで来たらポアしても良い
-            Call .Remove(comp)
-Continue:
-        Next
-    End With
-End Sub
-
 Public Function IsDevHelper( _
             ByVal a_ComponentName As String) As Boolean
     Const ERR_SOURCE As String = SELF_MOD_NAME & ".IsTarget()"
@@ -567,12 +562,6 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
-Private Sub Exp_ImportComponent_SkipIfNotChanged()
-    Dim modPath As String
-    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
-    Call ImportComponent(modPath)
-End Sub
-
 Private Sub Exp_HasChanged()
     Dim a As String, b As String
     a = "Private Sub Foo()" & vbCrLf & _
@@ -598,12 +587,6 @@ Private Sub Exp_HasChanged()
     Debug.Assert HasChanged("", "Option Explicit")
     
     Debug.Print "Done!!"
-End Sub
-
-Private Sub Exp_ImportComponent()
-    Dim modPath As String
-    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
-    Call ImportComponent(modPath)
 End Sub
 
 Private Sub Exp_DeleteCodeLines()
