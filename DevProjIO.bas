@@ -17,6 +17,9 @@ Private m_SucceededCount As Long
 Private m_FailedCount As Long
 Private m_SkippedCount As Long
 
+' 警告表示用
+Private m_Warnings As String
+
 Private m_fso As Object
 ' =============================================================================
 '   公開API
@@ -53,6 +56,8 @@ Public Sub ImportComponentsRepository()
     m_SucceededCount = 0
     m_FailedCount = 0
     m_SkippedCount = 0
+    ' 警告を初期化
+    m_Warnings = ""
     
     ' モジュールのコードをリポジトリからpull
     Call ImportComponents(repodir)
@@ -63,6 +68,9 @@ Public Sub ImportComponentsRepository()
     Debug.Print vbTab & "Pull succeeded: " & CStr(m_SucceededCount) & " module(s)."
     Debug.Print vbTab & "Pull failed   : " & CStr(m_FailedCount) & " module(s)."
     Debug.Print vbTab & "Pull skipped  : " & CStr(m_SkippedCount) & " module(s)."
+    If m_Warnings = "" Then Exit Sub
+    Debug.Print "【Warning!!】"
+    Debug.Print m_Warnings
 End Sub
 
 Public Sub ExportComponentsToRepository()
@@ -170,11 +178,24 @@ Public Sub ImportComponent( _
         Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
     ' プロジェクト内に同名モジュールあり -> コードのみpull
     Else
-        Dim repoCode As String, projCode As String
+        Dim repoCode As String, projCode As String, _
+            hasCstAttr As Boolean
+        
         ' プロジェクト内のモジュールからコード部分を取得
         projCode = ExtractProjectCode(comp)
         ' リポジトリから正味のコード部分を取得
-        repoCode = ExtractCodeBody(a_ComponentPath)
+        '   - カスタムAttributeを取り除いて比較する
+        hasCstAttr = HasCustomAttribute(a_ComponentPath)
+        ' カスタムAttributeがあるときは取り除いて取得
+        repoCode = ExtractCodeBody(a_ComponentPath, hasCstAttr)
+        ' カスタムAttributeの変更が同期されない旨、警告を表示する
+        If hasCstAttr Then
+            If m_Warnings <> "" Then m_Warnings = m_Warnings & vbCrLf
+            m_Warnings = _
+                m_Warnings & _
+                vbTab & "`" & modName & "`" & _
+                "のカスタムAttributeに変更があっても同期されない。"
+        End If
         ' 両者の内容が一致していたらpullしない
         If Not HasChanged(projCode, repoCode) Then
             ' スキップカウンタをインクリメント
@@ -182,13 +203,38 @@ Public Sub ImportComponent( _
             m_SkippedCount = m_SkippedCount + 1
             Exit Sub
         End If
-        ' 既存のコードを削除
-        '   - モジュールが空の場合をガード
-        If comp.CodeModule.CountOfLines > 0 Then
-            Call DeleteCodeLines(comp)
+        ' カスタムAttributeの有無を判定
+        '   - カスタムAttributeあり -> モジュールをまるごと差し替える
+        '   - カスタムAttributeなし -> コードのみ差し替える
+        If hasCstAttr Then
+            ' モジュールのまるごと差し替え
+            ' ただし、ドキュメントモジュールはポアできないので、警告を表示してスキップ
+            If comp.Type = vbext_ct_Document Then
+                Debug.Print "Skipped: " & modName
+                m_SkippedCount = m_SkippedCount + 1
+                If m_Warnings <> "" Then m_Warnings = m_Warnings & vbCrLf
+                m_Warnings = _
+                    m_Warnings & _
+                    vbTab & "`" & modName & "`" & _
+                    "にはカスタムAttributeがあるため自動同期不可。" & vbCrLf & _
+                    vbTab & vbTab & "手動でインポートしやがれクズが。(ﾟдﾟ)､ﾍﾟｯ"
+                Exit Sub
+            End If
+            
+            ' 既存モジュールをポア
+            Call ThisWorkbook.VBProject.VBComponents.Remove(comp)
+            ' リポジトリのモジュールをインポート
+            Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
+        Else
+            ' コードのみ差し替え
+            ' 既存のコードを削除
+            '   - モジュールが空の場合をガード
+            If comp.CodeModule.CountOfLines > 0 Then
+                Call DeleteCodeLines(comp)
+            End If
+            ' プロジェクトのモジュールに闘魂注入
+            Call comp.CodeModule.AddFromString(repoCode)
         End If
-        ' プロジェクトのモジュールに闘魂注入
-        Call comp.CodeModule.AddFromString(repoCode)
     End If
     ' 成功カウンタをインクリメント
     Debug.Print "Pulled: " & modName

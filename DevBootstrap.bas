@@ -598,6 +598,7 @@ Private Sub Exp_HasCustomAttribute()
     modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
     ' ↓こっちのパスは常にあるとは限らないので、動作確認後はコメントアウト
 '    modPath = ThisWorkbook.Path & "\repo\cls_mod\Dictionary.cls"
+'     modPath = ThisWorkbook.Path & "\repo\doc_mod\Sh01Data.cls"
     Debug.Print HasCustomAttribute(modPath)
 End Sub
 
