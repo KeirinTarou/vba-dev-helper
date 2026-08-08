@@ -388,6 +388,18 @@ Finally:
     ExtractModuleName = ret
 End Function
 
+Public Function IsDevHelper( _
+            ByVal a_ComponentName As String) As Boolean
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".IsTarget()"
+    IsDevHelper = False
+    Dim cn As String
+    cn = a_ComponentName
+    ' 3文字未満は問答無用でFalse
+    If Len(cn) < 3 Then Exit Function
+    IsDevHelper = _
+        (StrComp(Left$(cn, 3), DEV_HELPER_PREFIX, vbBinaryCompare) = 0)
+End Function
+
 Public Function ComponentExtension( _
             ByVal a_ComponentType As vbext_ComponentType) As String
     ' モジュールの種類に応じた拡張子を返す

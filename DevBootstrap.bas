@@ -53,7 +53,7 @@ Private Sub PushDevModules()
     ' 接頭辞`Dev`のもののみリポジトリに送り込む
     For Each comp In ThisWorkbook.VBProject.VBComponents
         cn = comp.Name
-        If Not IsDevHelper(cn) Then GoTo Continue
+        If Not DevUtils.IsDevHelper(cn) Then GoTo Continue
         ' エクスポート用ファイルパス取得
         f = cn & DevUtils.ComponentExtension(comp.Type)
         p = repodir & f
@@ -105,7 +105,7 @@ Private Sub PullDevModules()
         ' `.bas`、`.cls`以外はスルー
         If Not (ext = "bas" Or ext = "cls") Then GoTo Continue
         ' dev_helper以外はスルー
-        If Not IsDevHelper(bs) Then GoTo Continue
+        If Not DevUtils.IsDevHelper(bs) Then GoTo Continue
         ' このモジュールもスルー
         If bs = SELF_MOD_NAME Then GoTo Continue
         ' ここまで来たらインポート候補
@@ -139,18 +139,6 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 '   Helper Functions
 ' =============================================================================
-Public Function IsDevHelper( _
-            ByVal a_ComponentName As String) As Boolean
-    Const ERR_SOURCE As String = SELF_MOD_NAME & ".IsTarget()"
-    IsDevHelper = False
-    Dim cn As String
-    cn = a_ComponentName
-    ' 3文字未満は問答無用でFalse
-    If Len(cn) < 3 Then Exit Function
-    IsDevHelper = _
-        (StrComp(Left$(cn, 3), DEV_HELPER_PREFIX, vbBinaryCompare) = 0)
-End Function
-
 Public Function ComponentFolderName( _
             ByVal a_ComponentType As vbext_ComponentType) As String
     ' モジュールの種別に応じたリポジトリのサブフォルダ名を返す

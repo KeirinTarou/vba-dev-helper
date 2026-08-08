@@ -276,7 +276,7 @@ Private Sub ExportComponents( _
     Dim comp As Object, outDir As String
     For Each comp In ThisWorkbook.VBProject.VBComponents
         ' `Dev...`モジュールは除外
-        If IsDevHelper(comp.Name) Then GoTo Continue
+        If DevUtils.IsDevHelper(comp.Name) Then GoTo Continue
         ' 出力先フォルダパスを取得
         outDir = OutputDirPath(comp.Type, a_RepositoryPath)
         Call ExportComponent(comp, outDir)
