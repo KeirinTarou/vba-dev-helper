@@ -24,7 +24,7 @@ Private m_fso As Object
 ' =============================================================================
 '   公開API
 ' =============================================================================
-Public Sub ImportComponentsRepository()
+Public Sub ImportComponentsFromRepository()
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     
     ' SharePoint上のファイルのときはフラグを立てる
