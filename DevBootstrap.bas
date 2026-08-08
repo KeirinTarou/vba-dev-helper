@@ -327,8 +327,10 @@ Finally:
 End Function
 
 ' モジュールから、コードの正味の部分のみ取り出す
+'   - カスタム属性を除いた比較をするときは第2引数をTrueにする
 Public Function ExtractCodeBody( _
-            ByVal a_ComponentPath As String) As String
+            ByVal a_ComponentPath As String, _
+   Optional ByVal a_SkipAttribute As Boolean = False) As String
     Dim ret As String
     
     Dim conts As String, startLn As Long
@@ -337,10 +339,15 @@ Public Function ExtractCodeBody( _
     Dim codeArr As Variant
     codeArr = Split(conts, vbCrLf)
     
-    Dim i As Long
+    Dim i As Long, s As String
     For i = startLn - 1 To UBound(codeArr)
+        ' カスタム属性スキップモード時は`Attribute `で始まる行をスキップ
+        s = codeArr(i)
+        If a_SkipAttribute _
+            And Left$(s, Len("Attribute ")) = "Attribute " Then GoTo Continue
         If ret <> "" Then ret = ret & vbCrLf
-        ret = ret & codeArr(i)
+        ret = ret & s
+Continue:
     Next
     
     ExtractCodeBody = ret
@@ -617,6 +624,22 @@ Private Sub Exp_HasChanged()
     ' 空文字列の場合
     Debug.Assert Not HasChanged("", "")
     Debug.Assert HasChanged("", "Option Explicit")
+    
+    ' 次の検証用コードは開発用`dev_helper.xlsm`本体でしか再現しない
+    '   -> 検証が終わったらコメントアウト
+'    Dim modPath As String, modName As String
+'    modPath = ThisWorkbook.Path & "\repo\cls_mod\SqlQueryDef.cls"
+'    modName = ExtractModuleName(modPath)
+'    Dim comp As Object
+'    Set comp = FindComponent(modName)
+'    Dim projCode As String, repoCode As String
+'    projCode = ExtractProjectCode(comp)
+'    repoCode = ExtractCodeBody(modPath) ' <- カスタムAttributeごと取得
+'    ' 不一致のはず
+'    Debug.Assert HasChanged(projCode, repoCode)
+'    repoCode = ExtractCodeBody(modPath, True) ' <- カスタムAttribute除外
+'    ' 一致するはず
+'    Debug.Assert Not HasChanged(projCode, repoCode)
     
     Debug.Print "Done!!"
 End Sub
