@@ -115,10 +115,12 @@ Public Sub ExportComponentsToRepository()
         docDir = repodir & DOC_MOD
         If Not .FolderExists(docDir) Then Call .CreateFolder(docDir)
     End With
+    
     ' カウンタを初期化
     m_SucceededCount = 0
     m_FailedCount = 0
     m_SkippedCount = 0
+    
     Call ExportComponents(repodir)
     Debug.Print String(40, "-")
     Debug.Print "Summary: "
@@ -302,20 +304,37 @@ Private Sub ExportComponent( _
     p = a_OutputDir & dlmt & f
     ' エクスポート
     '   - 例外で失敗したときはイミディエイトに表示
-    On Error Resume Next
-    ' 既存ファイルがあればポア
-    If m_fso.FileExists(p) Then Call m_fso.DeleteFile(p, True)
-    ' 既存ファイルのポアに失敗 -> イミディエイトで通知 -> 握りつぶしてExit
-    If Err.Number <> 0 Then
-        Debug.Print "FAILED: existing `" & f & "` not deleted."
-        Debug.Print "Number: " & Err.Number
-        Debug.Print "Source: " & Err.Source
-        Debug.Print "Desc  : " & Err.Description
-        Call Err.Clear
-        ' 失敗カウンタをインクリメント
-        m_FailedCount = m_FailedCount + 1
-        Exit Sub
+    ' 既存ファイルあり
+    If m_fso.FileExists(p) Then
+        ' コードを比較
+        Dim projCode As String, repoCode As String
+        projCode = ExtractProjectCode(a_Component)
+        repoCode = ExtractCodeBody(p, HasCustomAttribute(p))
+        ' 変更がない場合はエクスポートしなくて良い
+        If Not HasChanged(projCode, repoCode) Then
+            ' スキップ
+            Debug.Print "Skipped: " & a_Component.Name
+            m_SkippedCount = m_SkippedCount + 1
+            Exit Sub
+        End If
+        On Error Resume Next
+        ' 既存ファイルをポア
+        Call m_fso.DeleteFile(p, True)
+        ' 既存ファイルのポアに失敗 -> イミディエイトで通知 -> 握りつぶしてExit
+        If Err.Number <> 0 Then
+            Debug.Print "FAILED: existing `" & f & "` not deleted."
+            Debug.Print "Number: " & Err.Number
+            Debug.Print "Source: " & Err.Source
+            Debug.Print "Desc  : " & Err.Description
+            Call Err.Clear
+            ' 失敗カウンタをインクリメント
+            m_FailedCount = m_FailedCount + 1
+            Exit Sub
+        End If
+        On Error GoTo 0
     End If
+    On Error Resume Next
+    ' モジュールをエクスポート
     Call a_Component.Export(p)
     ' エクスポートに失敗していたらイミディエイトに表示して握りつぶす
     If Err.Number <> 0 Then
