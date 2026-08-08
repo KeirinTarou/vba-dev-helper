@@ -14,6 +14,22 @@ Public Const DEV_HELPER_PREFIX As String = "Dev"
 
 Private m_fso As Object
 
+' Dev系モジュールをリポジトリにpush
+Private Sub Push()
+    Call PushDevModules
+End Sub
+
+' Dev系モジュールをリポジトリからpull
+'   - ただし、このモジュールだけは手動pull必須
+Private Sub Pull()
+    Call PullDevModules
+End Sub
+
+' `DevUtils`の関数群の動作確認
+Private Sub ExperimentDevUtilsFunctions()
+    Call DevUtils.ExecuteAllExperiments
+End Sub
+
 Private Sub PushDevModules()
     ' SharePoint上のプロジェクトから実行しようとしたらブロック
     If Left(ThisWorkbook.Path, 5) = "https" Then

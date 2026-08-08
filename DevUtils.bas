@@ -413,7 +413,7 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
-Private Sub ExecuteAllExperiments()
+Public Sub ExecuteAllExperiments()
     ' 動作確認用プロシージャをまとめて実行
     ' DevHelper一式がExcelの隣の`.dev_helper`フォルダに入っている前提
     ' `ForPullTest`モジュールがある前提
