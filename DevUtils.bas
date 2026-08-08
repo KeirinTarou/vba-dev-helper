@@ -165,7 +165,7 @@ Public Function HasChanged( _
 End Function
 
 ' コードを正規化する
-Public Function NormalizeCode( _
+Private Function NormalizeCode( _
             ByVal a_Code As String) As String
     Dim ret As String
     
@@ -185,7 +185,6 @@ Public Function NormalizeCode( _
 End Function
 
 ' モジュールにカスタム属性があるかどうか判定する
-' モジュールから、コードの正味の部分のみ取り出す
 Public Function HasCustomAttribute( _
             ByVal a_ComponentPath As String) As Boolean
     Dim ret As Boolean
@@ -238,7 +237,7 @@ End Function
 ' モジュールから取り出したコードの正味の開始位置（行）を取得する
 '   - `Attribute`で始まる行の最後の行（とそれに続く空行）までが
 '     ヘッダ情報部分
-Public Function FindCodeStartLine( _
+Private Function FindCodeStartLine( _
             ByVal a_ComponentPath As String) As Long
     Const ERR_SOURCE As String = SELF_MOD_NAME & ".FindCodeStartLine()"
     Dim ret As Long
@@ -285,7 +284,7 @@ Finally:
 End Function
 
 ' 指定したモジュールファイルから、純粋なコード部分のみ取り出す
-Public Function LoadComponentCode( _
+Private Function LoadComponentCode( _
             ByVal a_ComponentPath As String) As String
     Const ERR_SOURCE As String = SELF_MOD_NAME & ".LoadComponentCode()"
     Dim ret As String

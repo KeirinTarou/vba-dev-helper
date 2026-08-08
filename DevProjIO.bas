@@ -169,9 +169,9 @@ Public Sub ImportComponent( _
     Const ERR_SOURCE As String = SELF_MOD_NAME & ".ImportComponent()"
     ' モジュール名を取得
     Dim modName As String
-    modName = ExtractModuleName(a_ComponentPath)
+    modName = DevUtils.ExtractModuleName(a_ComponentPath)
     Dim comp As Object
-    Set comp = FindComponent(modName)
+    Set comp = DevUtils.FindComponent(modName)
     
     ' 例外発生時はメッセージを表示して握りつぶす
     On Error GoTo HandleError
@@ -184,12 +184,12 @@ Public Sub ImportComponent( _
             hasCstAttr As Boolean
         
         ' プロジェクト内のモジュールからコード部分を取得
-        projCode = ExtractProjectCode(comp)
+        projCode = DevUtils.ExtractProjectCode(comp)
         ' リポジトリから正味のコード部分を取得
         '   - カスタムAttributeを取り除いて比較する
-        hasCstAttr = HasCustomAttribute(a_ComponentPath)
+        hasCstAttr = DevUtils.HasCustomAttribute(a_ComponentPath)
         ' カスタムAttributeがあるときは取り除いて取得
-        repoCode = ExtractCodeBody(a_ComponentPath, hasCstAttr)
+        repoCode = DevUtils.ExtractCodeBody(a_ComponentPath, hasCstAttr)
         ' カスタムAttributeの変更が同期されない旨、警告を表示する
         If hasCstAttr Then
             If m_Warnings <> "" Then m_Warnings = m_Warnings & vbCrLf
@@ -199,7 +199,7 @@ Public Sub ImportComponent( _
                 "のカスタムAttributeに変更があっても同期されない。"
         End If
         ' 両者の内容が一致していたらpullしない
-        If Not HasChanged(projCode, repoCode) Then
+        If Not DevUtils.HasChanged(projCode, repoCode) Then
             ' スキップカウンタをインクリメント
             Debug.Print "Skipped: " & modName
             m_SkippedCount = m_SkippedCount + 1
@@ -232,7 +232,7 @@ Public Sub ImportComponent( _
             ' 既存のコードを削除
             '   - モジュールが空の場合をガード
             If comp.CodeModule.CountOfLines > 0 Then
-                Call DeleteCodeLines(comp)
+                Call DevUtils.DeleteCodeLines(comp)
             End If
             ' プロジェクトのモジュールに闘魂注入
             Call comp.CodeModule.AddFromString(repoCode)
@@ -297,7 +297,7 @@ Private Sub ExportComponent( _
 
     ' エクスポートファイル名を取得 -> 保存先パス作成
     Dim f As String, p As String
-    f = a_Component.Name & ComponentExtension(a_Component.Type)
+    f = a_Component.Name & DevUtils.ComponentExtension(a_Component.Type)
     Dim dlmt As String
     dlmt = "\"
     If Right(a_OutputDir, 1) = "\" Then dlmt = ""
@@ -308,10 +308,10 @@ Private Sub ExportComponent( _
     If m_fso.FileExists(p) Then
         ' コードを比較
         Dim projCode As String, repoCode As String
-        projCode = ExtractProjectCode(a_Component)
-        repoCode = ExtractCodeBody(p, HasCustomAttribute(p))
+        projCode = DevUtils.ExtractProjectCode(a_Component)
+        repoCode = DevUtils.ExtractCodeBody(p, DevUtils.HasCustomAttribute(p))
         ' 変更がない場合はエクスポートしなくて良い
-        If Not HasChanged(projCode, repoCode) Then
+        If Not DevUtils.HasChanged(projCode, repoCode) Then
             ' スキップ
             Debug.Print "Skipped: " & a_Component.Name
             m_SkippedCount = m_SkippedCount + 1

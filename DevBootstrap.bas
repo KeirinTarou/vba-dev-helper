@@ -55,17 +55,17 @@ Private Sub PushDevModules()
         cn = comp.Name
         If Not IsDevHelper(cn) Then GoTo Continue
         ' エクスポート用ファイルパス取得
-        f = cn & ComponentExtension(comp.Type)
+        f = cn & DevUtils.ComponentExtension(comp.Type)
         p = repodir & f
         ' 既存の同名ファイルがあるとき
         '   - DeleteFile(filespec, [force])
         If m_fso.FileExists(p) Then
             ' プロジェクト側とリポジトリ側のコードを取得
             Dim projCode As String, repoCode As String
-            projCode = ExtractProjectCode(comp)
-            repoCode = ExtractCodeBody(p)
+            projCode = DevUtils.ExtractProjectCode(comp)
+            repoCode = DevUtils.ExtractCodeBody(p)
             ' 内容が同じだったらスキップ
-            If Not HasChanged(projCode, repoCode) Then
+            If Not DevUtils.HasChanged(projCode, repoCode) Then
                 Debug.Print "Skipped: " & f
                 GoTo Continue
             ' 内容が異なっていたら、既存ファイルをポア
@@ -112,18 +112,18 @@ Private Sub PullDevModules()
         Dim repoCode As String, comp As Object, projCode As String
         ' リポジトリのコードを取得
         '   - 全体を取得 -> 正味のコード部分を取得
-        repoCode = ExtractCodeBody(f.Path)
+        repoCode = DevUtils.ExtractCodeBody(f.Path)
         ' モジュールのコードを取得
-        Set comp = FindComponent(bs)
+        Set comp = DevUtils.FindComponent(bs)
         ' 対応するモジュールがプロジェクト側にない -> pullしてContinue
         If comp Is Nothing Then
             Call ImportComponent(f.Path)
             Debug.Print "Pulled: " & f.Name
             GoTo Continue
         End If
-        projCode = ExtractProjectCode(comp)
+        projCode = DevUtils.ExtractProjectCode(comp)
         ' モジュールのコードとリポジトリのコードを比較
-        If HasChanged(projCode, repoCode) Then
+        If DevUtils.HasChanged(projCode, repoCode) Then
             ' 不一致だったらコードを闘魂注入
             Call ImportComponent(f.Path)
             Debug.Print "Pulled: " & f.Name
