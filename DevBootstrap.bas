@@ -153,11 +153,11 @@ Private Sub PushDevModules()
     ' dev_helperプロジェクト関係のモジュールを所定フォルダに全push
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     
-    Dim repoDir As String
-    repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
+    Dim repodir As String
+    repodir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
     ' `.dev_helper`フォルダがなかったら作る
-    If Not m_fso.FolderExists(repoDir) Then
-        Call m_fso.CreateFolder(repoDir)
+    If Not m_fso.FolderExists(repodir) Then
+        Call m_fso.CreateFolder(repodir)
     End If
     Dim comp As Object, cn As String, f As String, p As String
     ' 接頭辞`Dev`のもののみリポジトリに送り込む
@@ -166,7 +166,7 @@ Private Sub PushDevModules()
         If Not IsDevHelper(cn) Then GoTo Continue
         ' エクスポート用ファイルパス取得
         f = cn & ComponentExtension(comp.Type)
-        p = repoDir & f
+        p = repodir & f
         ' 既存の同名ファイルがあるとき
         '   - DeleteFile(filespec, [force])
         If m_fso.FileExists(p) Then
@@ -206,10 +206,10 @@ Private Sub PullDevModules()
     '   - このモジュールだけは手動pull
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     
-    Dim repoDir As String
-    repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
+    Dim repodir As String
+    repodir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
     Dim f As Object, ext As String, bs As String
-    For Each f In m_fso.GetFolder(repoDir).Files
+    For Each f In m_fso.GetFolder(repodir).Files
         ext = LCase$(m_fso.GetExtensionName(f.Path))
         bs = m_fso.GetBaseName(f.Path)
         ' `.bas`、`.cls`以外はスルー
@@ -300,6 +300,30 @@ Public Function NormalizeCode( _
     ret = Trim(ret)
     
     NormalizeCode = ret
+End Function
+
+' モジュールにカスタム属性があるかどうか判定する
+' モジュールから、コードの正味の部分のみ取り出す
+Public Function HasCustomAttribute( _
+            ByVal a_ComponentPath As String) As Boolean
+    Dim ret As Boolean
+    ret = False
+    
+    Dim conts As String, startLn As Long
+    conts = LoadComponentCode(a_ComponentPath)
+    startLn = FindCodeStartLine(a_ComponentPath)
+    Dim codeArr As Variant
+    codeArr = Split(conts, vbCrLf)
+    
+    Dim i As Long
+    For i = startLn - 1 To UBound(codeArr)
+        If Left$(codeArr(i), Len("Attribute ")) = "Attribute " Then
+            ret = True
+            GoTo Finally
+        End If
+    Next
+Finally:
+    HasCustomAttribute = ret
 End Function
 
 ' モジュールから、コードの正味の部分のみ取り出す
@@ -562,6 +586,14 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
+Private Sub Exp_HasCustomAttribute()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    ' ↓こっちのパスは常にあるとは限らないので、動作確認後はコメントアウト
+'    modPath = ThisWorkbook.Path & "\repo\cls_mod\Dictionary.cls"
+    Debug.Print HasCustomAttribute(modPath)
+End Sub
+
 Private Sub Exp_HasChanged()
     Dim a As String, b As String
     a = "Private Sub Foo()" & vbCrLf & _
