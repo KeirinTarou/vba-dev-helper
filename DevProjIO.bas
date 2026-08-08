@@ -76,6 +76,57 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 '   開発者向けヘルパ
 ' =============================================================================
+Public Sub ImportComponent( _
+            ByVal a_ComponentPath As String)
+    Const ERR_SOURCE As String = SELF_MOD_NAME & ".ImportComponent()"
+    ' モジュール名を取得
+    Dim modName As String
+    modName = ExtractModuleName(a_ComponentPath)
+    Dim comp As Object
+    Set comp = FindComponent(modName)
+    
+    ' 例外発生時はメッセージを表示して握りつぶす
+    On Error GoTo HandleError
+    ' プロジェクト内に同名モジュールがない -> そのままpull
+    If comp Is Nothing Then
+        Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
+    ' プロジェクト内に同名モジュールあり -> コードのみpull
+    Else
+        Dim repoCode As String, projCode As String
+        ' プロジェクト内のモジュールからコード部分を取得
+        projCode = ExtractProjectCode(comp)
+        ' リポジトリから正味のコード部分を取得
+        repoCode = ExtractCodeBody(a_ComponentPath)
+        ' 両者の内容が一致していたらpullしない
+        If Not HasChanged(projCode, repoCode) Then Exit Sub
+        
+        ' 既存のコードを削除
+        '   - モジュールが空の場合をガード
+        If comp.CodeModule.CountOfLines > 0 Then
+            Call DeleteCodeLines(comp)
+        End If
+        ' プロジェクトのモジュールに闘魂注入
+        Call comp.CodeModule.AddFromString(repoCode)
+    End If
+    ' 成功カウンタをインクリメント
+    m_SucceededCount = m_SucceededCount + 1
+    Exit Sub
+HandleError:
+    Dim errNum As Long, errSrc As String, errDesc As String
+    errNum = Err.Number
+    errSrc = Err.Source & "." & ERR_SOURCE
+    errDesc = Err.Description & vbCrLf & _
+        "(モジュール`" & modName & "`のpullに失敗した。)"
+    Debug.Print "Pull `" & modName & "` module failed."
+    Debug.Print "Number: " & errNum
+    Debug.Print "Source: " & errSrc
+    Debug.Print "Desc  : " & errDesc
+    ' 失敗カウンタをインクリメント
+    m_FailedCount = m_FailedCount + 1
+    ' 例外は握りつぶす
+    Call Err.Clear
+End Sub
+
 Private Sub ExportComponents( _
             ByVal a_RepositoryPath As String)
     ' プロジェクトの全モジュールをリポジトリにエクスポートする

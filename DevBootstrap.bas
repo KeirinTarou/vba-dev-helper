@@ -230,53 +230,6 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 '   Helper Functions
 ' =============================================================================
-Public Sub ImportComponent( _
-            ByVal a_ComponentPath As String)
-    Const ERR_SOURCE As String = SELF_MOD_NAME & ".ImportComponent()"
-    ' モジュール名を取得
-    Dim modName As String
-    modName = ExtractModuleName(a_ComponentPath)
-    Dim comp As Object
-    Set comp = FindComponent(modName)
-    
-    ' 例外発生時は呼び出し元に再スロー
-    On Error GoTo HandleError
-    ' プロジェクト内に同名モジュールがない -> そのままpull
-    If comp Is Nothing Then
-        Call ThisWorkbook.VBProject.VBComponents.Import(a_ComponentPath)
-    ' プロジェクト内に同名モジュールあり -> コードのみpull
-    Else
-        ' リポジトリから正味のコード部分を取得
-        Dim conts As String, projCode As String
-        conts = ExtractCodeBody(a_ComponentPath)
-        ' プロジェクト内のモジュールからコード部分を取得
-        projCode = ExtractProjectCode(comp)
-        ' 両者の内容が一致していたらpullしない
-        If Not HasChanged(conts, projCode) Then Exit Sub
-        
-        ' 既存のコードを削除
-        '   - モジュールが空の場合をガード
-        If comp.CodeModule.CountOfLines > 0 Then
-            Call DeleteCodeLines(comp)
-        End If
-        ' プロジェクトのモジュールに闘魂注入
-        Call comp.CodeModule.AddFromString(conts)
-    End If
-    Exit Sub
-HandleError:
-    Dim errNum As Long, errSrc As String, errDesc As String
-    errNum = Err.Number
-    errSrc = Err.Source & "." & ERR_SOURCE
-    errDesc = Err.Description & vbCrLf & _
-        "(モジュール`" & modName & "`のpullに失敗した。)"
-    Debug.Print "Pull `" & modName & "` module failed."
-    Debug.Print "Number: " & errNum
-    Debug.Print "Source: " & errSrc
-    Debug.Print "Desc  : " & errDesc
-    ' 呼び出し元に再スロー
-    Call Err.Raise(errNum, errSrc, errDesc)
-End Sub
-
 ' プロジェクト側のモジュールからコードを削除する
 Public Sub DeleteCodeLines( _
             ByVal a_Component As Object)
