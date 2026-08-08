@@ -387,6 +387,12 @@ Private Sub Exp_ImportComponent_SkipIfNotChanged()
     Call ImportComponent(modPath)
 End Sub
 
+Private Sub Exp_ImportComponent_PullNotExistingModule()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
 Private Sub Exp_ImportComponent()
     ' モジュールをインポートする
     Dim modPath As String

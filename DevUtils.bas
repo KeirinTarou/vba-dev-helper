@@ -274,7 +274,7 @@ Continue:
             ERR_INVALID_FILE, _
             ERR_SOURCE, _
             "`Attribute`がない。VBAのモジュールファイルではないようだ。")
-    ' 返り値が0以下になる
+    ' 返り値が1以下になる
     If ret <= 1 Then _
         Call RaiseError( _
             ERR_INVALID_FILE, _
@@ -389,6 +389,26 @@ Finally:
     ExtractModuleName = ret
 End Function
 
+Public Function ComponentExtension( _
+            ByVal a_ComponentType As vbext_ComponentType) As String
+    ' モジュールの種類に応じた拡張子を返す
+    Const ERR_SOURCE As String = "DevProj.GetExtension()"
+    Dim ret As String
+    Select Case a_ComponentType
+        Case vbext_ct_StdModule: ret = ".bas"
+        Case vbext_ct_ClassModule: ret = ".cls"
+        Case vbext_ct_MSForm: ret = ".frm"
+        Case vbext_ct_Document: ret = ".cls"
+        Case vbext_ct_ActiveXDesigner
+            Call RaiseError( _
+                ERR_NOT_SUPPORTED, ERR_SOURCE, "ActiveX Designer はサポート対象外である。")
+        Case Else
+            Call RaiseError( _
+                ERR_INVALID_ARGUMENT, ERR_SOURCE, "不正な引数が渡された。")
+    End Select
+    ComponentExtension = ret
+End Function
+
 Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
@@ -397,9 +417,9 @@ Private Sub ExecuteAllExperiments()
     ' 動作確認用プロシージャをまとめて実行
     ' DevHelper一式がExcelの隣の`.dev_helper`フォルダに入っている前提
     ' `ForPullTest`モジュールがある前提
+    Call Exp_ComponentExtension
     Call Exp_ExtractModuleName
     Call Exp_FindComponent
-    Call Exp_ImportComponent_PullNotExistingModule
     Call Exp_LoadComponentCode
     Call Exp_FindCodeStartLine
     Call Exp_ExtractCodeBody
@@ -408,6 +428,7 @@ Private Sub ExecuteAllExperiments()
     Call Exp_HasCustomAttribute
     Dim sp As String    ' Spacerの略
     sp = vbCrLf & vbTab
+    Debug.Print String(40, "-")
     Debug.Print "【Warning!!!!】"
     Debug.Print vbTab & _
         "`Exp_DeleteCodeLines()`により、`ForPullTest`が空になっている。" & _
@@ -421,7 +442,9 @@ Private Sub Exp_HasCustomAttribute()
     ' ↓こっちのパスは常にあるとは限らないので、動作確認後はコメントアウト
 '    modPath = ThisWorkbook.Path & "\repo\cls_mod\Dictionary.cls"
 '     modPath = ThisWorkbook.Path & "\repo\doc_mod\Sh01Data.cls"
+    Debug.Print String(40, "-")
     Debug.Print HasCustomAttribute(modPath)
+    Debug.Print "Exp_HasCustomAttribute() done!!"
 End Sub
 
 Private Sub Exp_HasChanged()
@@ -463,8 +486,8 @@ Private Sub Exp_HasChanged()
 '    repoCode = ExtractCodeBody(modPath, True) ' <- カスタムAttribute除外
 '    ' 一致するはず
 '    Debug.Assert Not HasChanged(projCode, repoCode)
-    
-    Debug.Print "Done!!"
+    Debug.Print String(40, "-")
+    Debug.Print "Exp_HasChanged() done!!"
 End Sub
 
 Private Sub Exp_DeleteCodeLines()
@@ -472,30 +495,34 @@ Private Sub Exp_DeleteCodeLines()
     Set comp = FindComponent("ForPullTest")
     'Set comp = FindComponent("SOEntry")
     Call DeleteCodeLines(comp)
+    Debug.Print String(40, "-")
+    Debug.Print "Exp_DeleteCodeLines() done!!"
 End Sub
 
 Private Sub Exp_ExtractCodeBody()
     Dim modPath As String
     modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print String(40, "-")
     Debug.Print ExtractCodeBody(modPath)
+    Debug.Print "Exp_ExtractCodeBody() done!!"
 End Sub
 
 Private Sub Exp_FindCodeStartLine()
     Dim modPath As String
     modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
-    Debug.Print FindCodeStartLine(modPath)
+    Debug.Print String(40, "-")
+    Debug.Print "ForPullTest's code starts from " & _
+                FindCodeStartLine(modPath)
+    Debug.Print "Exp_FindCodeStartLine() done!!"
 End Sub
 
 Private Sub Exp_LoadComponentCode()
     Dim modPath As String
     modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Debug.Print String(40, "-")
     Debug.Print LoadComponentCode(modPath)
-End Sub
-
-Private Sub Exp_ImportComponent_PullNotExistingModule()
-    Dim modPath As String
-    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
-    Call ImportComponent(modPath)
+    Debug.Print String(40, "-")
+    Debug.Print "Exp_FindComponent() done!!"
 End Sub
 
 Private Sub Exp_FindComponent()
@@ -507,6 +534,8 @@ Private Sub Exp_FindComponent()
     ' 存在しないモジュール
     Set comp2 = FindComponent("pachinko123")
     Debug.Assert comp2 Is Nothing
+    Debug.Print String(40, "-")
+    Debug.Print "Exp_FindComponent() done!!"
 End Sub
 
 Private Sub Exp_ExtractModuleName()
@@ -515,8 +544,19 @@ Private Sub Exp_ExtractModuleName()
     modPath = ThisWorkbook.Path & "\.dev_helper\DevBootstrap.bas"
     Dim modName As String
     modName = ExtractModuleName(modPath)
+    Debug.Print String(40, "-")
     Debug.Print modName
     Debug.Assert modName = "DevBootstrap"
+    Debug.Print "Exp_ExtractModuleName() done!!"
+End Sub
+
+Private Sub Exp_ComponentExtension()
+    Debug.Assert ComponentExtension(vbext_ct_ClassModule) = ".cls"
+    Debug.Assert ComponentExtension(vbext_ct_Document) = ".cls"
+    Debug.Assert ComponentExtension(vbext_ct_MSForm) = ".frm"
+    Debug.Assert ComponentExtension(vbext_ct_StdModule) = ".bas"
+    Debug.Print String(40, "-")
+    Debug.Print "Exp_ComponentExtension() done!!"
 End Sub
 
 ' まとめて実行対象外にする

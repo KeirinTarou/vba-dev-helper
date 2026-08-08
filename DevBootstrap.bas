@@ -135,26 +135,6 @@ Public Function IsDevHelper( _
         (StrComp(Left$(cn, 3), DEV_HELPER_PREFIX, vbBinaryCompare) = 0)
 End Function
 
-Public Function ComponentExtension( _
-            ByVal a_ComponentType As vbext_ComponentType) As String
-    ' モジュールの種類に応じた拡張子を返す
-    Const ERR_SOURCE As String = "DevProj.GetExtension()"
-    Dim ret As String
-    Select Case a_ComponentType
-        Case vbext_ct_StdModule: ret = ".bas"
-        Case vbext_ct_ClassModule: ret = ".cls"
-        Case vbext_ct_MSForm: ret = ".frm"
-        Case vbext_ct_Document: ret = ".cls"
-        Case vbext_ct_ActiveXDesigner
-            Call RaiseError( _
-                ERR_NOT_SUPPORTED, ERR_SOURCE, "ActiveX Designer はサポート対象外である。")
-        Case Else
-            Call RaiseError( _
-                ERR_INVALID_ARGUMENT, ERR_SOURCE, "不正な引数が渡された。")
-    End Select
-    ComponentExtension = ret
-End Function
-
 Public Function ComponentFolderName( _
             ByVal a_ComponentType As vbext_ComponentType) As String
     ' モジュールの種別に応じたリポジトリのサブフォルダ名を返す
