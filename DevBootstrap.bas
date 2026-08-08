@@ -153,11 +153,11 @@ Private Sub PushDevModules()
     ' dev_helperプロジェクト関係のモジュールを所定フォルダに全push
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     
-    Dim repoDir As String
-    repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
+    Dim repodir As String
+    repodir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
     ' `.dev_helper`フォルダがなかったら作る
-    If Not m_fso.FolderExists(repoDir) Then
-        Call m_fso.CreateFolder(repoDir)
+    If Not m_fso.FolderExists(repodir) Then
+        Call m_fso.CreateFolder(repodir)
     End If
     Dim comp As Object, cn As String, f As String, p As String
     ' 接頭辞`Dev`のもののみリポジトリに送り込む
@@ -166,7 +166,7 @@ Private Sub PushDevModules()
         If Not IsDevHelper(cn) Then GoTo Continue
         ' エクスポート用ファイルパス取得
         f = cn & ComponentExtension(comp.Type)
-        p = repoDir & f
+        p = repodir & f
         ' 既存の同名ファイルがあるとき
         '   - DeleteFile(filespec, [force])
         If m_fso.FileExists(p) Then
@@ -206,10 +206,10 @@ Private Sub PullDevModules()
     '   - このモジュールだけは手動pull
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     
-    Dim repoDir As String
-    repoDir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
+    Dim repodir As String
+    repodir = ThisWorkbook.Path & DEV_HELPER_REPO_NAME
     Dim f As Object, ext As String, bs As String
-    For Each f In m_fso.GetFolder(repoDir).Files
+    For Each f In m_fso.GetFolder(repodir).Files
         ext = LCase$(m_fso.GetExtensionName(f.Path))
         bs = m_fso.GetBaseName(f.Path)
         ' `.bas`、`.cls`以外はスルー
@@ -302,10 +302,12 @@ Public Function NormalizeCode( _
     NormalizeCode = ret
 End Function
 
+' モジュールにカスタム属性があるかどうか判定する
 ' モジュールから、コードの正味の部分のみ取り出す
-Public Function ExtractCodeBody( _
-            ByVal a_ComponentPath As String) As String
-    Dim ret As String
+Public Function HasCustomAttribute( _
+            ByVal a_ComponentPath As String) As Boolean
+    Dim ret As Boolean
+    ret = False
     
     Dim conts As String, startLn As Long
     conts = LoadComponentCode(a_ComponentPath)
@@ -315,8 +317,37 @@ Public Function ExtractCodeBody( _
     
     Dim i As Long
     For i = startLn - 1 To UBound(codeArr)
+        If Left$(codeArr(i), Len("Attribute ")) = "Attribute " Then
+            ret = True
+            GoTo Finally
+        End If
+    Next
+Finally:
+    HasCustomAttribute = ret
+End Function
+
+' モジュールから、コードの正味の部分のみ取り出す
+'   - カスタム属性を除いた比較をするときは第2引数をTrueにする
+Public Function ExtractCodeBody( _
+            ByVal a_ComponentPath As String, _
+   Optional ByVal a_SkipAttribute As Boolean = False) As String
+    Dim ret As String
+    
+    Dim conts As String, startLn As Long
+    conts = LoadComponentCode(a_ComponentPath)
+    startLn = FindCodeStartLine(a_ComponentPath)
+    Dim codeArr As Variant
+    codeArr = Split(conts, vbCrLf)
+    
+    Dim i As Long, s As String
+    For i = startLn - 1 To UBound(codeArr)
+        ' カスタム属性スキップモード時は`Attribute `で始まる行をスキップ
+        s = codeArr(i)
+        If a_SkipAttribute _
+            And Left$(s, Len("Attribute ")) = "Attribute " Then GoTo Continue
         If ret <> "" Then ret = ret & vbCrLf
-        ret = ret & codeArr(i)
+        ret = ret & s
+Continue:
     Next
     
     ExtractCodeBody = ret
@@ -562,6 +593,15 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 '   Experimental procedures
 ' =============================================================================
+Private Sub Exp_HasCustomAttribute()
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    ' ↓こっちのパスは常にあるとは限らないので、動作確認後はコメントアウト
+'    modPath = ThisWorkbook.Path & "\repo\cls_mod\Dictionary.cls"
+'     modPath = ThisWorkbook.Path & "\repo\doc_mod\Sh01Data.cls"
+    Debug.Print HasCustomAttribute(modPath)
+End Sub
+
 Private Sub Exp_HasChanged()
     Dim a As String, b As String
     a = "Private Sub Foo()" & vbCrLf & _
@@ -585,6 +625,22 @@ Private Sub Exp_HasChanged()
     ' 空文字列の場合
     Debug.Assert Not HasChanged("", "")
     Debug.Assert HasChanged("", "Option Explicit")
+    
+    ' 次の検証用コードは開発用`dev_helper.xlsm`本体でしか再現しない
+    '   -> 検証が終わったらコメントアウト
+'    Dim modPath As String, modName As String
+'    modPath = ThisWorkbook.Path & "\repo\cls_mod\SqlQueryDef.cls"
+'    modName = ExtractModuleName(modPath)
+'    Dim comp As Object
+'    Set comp = FindComponent(modName)
+'    Dim projCode As String, repoCode As String
+'    projCode = ExtractProjectCode(comp)
+'    repoCode = ExtractCodeBody(modPath) ' <- カスタムAttributeごと取得
+'    ' 不一致のはず
+'    Debug.Assert HasChanged(projCode, repoCode)
+'    repoCode = ExtractCodeBody(modPath, True) ' <- カスタムAttribute除外
+'    ' 一致するはず
+'    Debug.Assert Not HasChanged(projCode, repoCode)
     
     Debug.Print "Done!!"
 End Sub
