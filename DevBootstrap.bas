@@ -139,26 +139,6 @@ Private Sub AA_HelperFunctions(): End Sub
 ' =============================================================================
 '   Helper Functions
 ' =============================================================================
-Public Function ComponentFolderName( _
-            ByVal a_ComponentType As vbext_ComponentType) As String
-    ' モジュールの種別に応じたリポジトリのサブフォルダ名を返す
-    Const ERR_SOURCE As String = "DevProj.GetFolderName()"
-    Dim ret As String
-    Select Case a_ComponentType
-        Case vbext_ct_StdModule: ret = "std_mod"
-        Case vbext_ct_ClassModule: ret = "cls_mod"
-        Case vbext_ct_MSForm: ret = "frm_mod"
-        Case vbext_ct_Document: ret = "doc_mod"
-        Case vbext_ct_ActiveXDesigner
-            Call DevUtils.RaiseError( _
-                ERR_NOT_SUPPORTED, ERR_SOURCE, "ActiveX Designer はサポート対象外である。")
-        Case Else
-            Call DevUtils.RaiseError( _
-                ERR_INVALID_ARGUMENT, ERR_SOURCE, "不正な引数が渡された。")
-    End Select
-    ComponentFolderName = ret
-End Function
-
 Private Function ComponentTypeName( _
             ByVal a_ComponentType As vbext_ComponentType) As String
     ' コンポーネントの種別を返す
