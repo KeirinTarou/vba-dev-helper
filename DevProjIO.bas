@@ -24,7 +24,7 @@ Private m_fso As Object
 ' =============================================================================
 '   公開API
 ' =============================================================================
-Public Sub ImportComponentsRepository()
+Public Sub ImportComponentsFromRepository()
     Set m_fso = CreateObject("Scripting.FileSystemObject")
     
     ' SharePoint上のファイルのときはフラグを立てる
@@ -146,7 +146,8 @@ Private Sub ImportComponents( _
         Set m_fso = CreateObject("Scripting.FileSystemObject")
     ' リポジトリがない -> 例外スロー
     If Not m_fso.FolderExists(a_RepositoryPath) Then _
-        Call RaiseError(ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
+        Call DevUtils.RaiseError( _
+            ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
     
     ' ImportComponent()を呼び出す
     Dim repo As Object, f As Object, fd As Object
@@ -169,9 +170,9 @@ Public Sub ImportComponent( _
     Const ERR_SOURCE As String = SELF_MOD_NAME & ".ImportComponent()"
     ' モジュール名を取得
     Dim modName As String
-    modName = ExtractModuleName(a_ComponentPath)
+    modName = DevUtils.ExtractModuleName(a_ComponentPath)
     Dim comp As Object
-    Set comp = FindComponent(modName)
+    Set comp = DevUtils.FindComponent(modName)
     
     ' 例外発生時はメッセージを表示して握りつぶす
     On Error GoTo HandleError
@@ -184,12 +185,12 @@ Public Sub ImportComponent( _
             hasCstAttr As Boolean
         
         ' プロジェクト内のモジュールからコード部分を取得
-        projCode = ExtractProjectCode(comp)
+        projCode = DevUtils.ExtractProjectCode(comp)
         ' リポジトリから正味のコード部分を取得
         '   - カスタムAttributeを取り除いて比較する
-        hasCstAttr = HasCustomAttribute(a_ComponentPath)
+        hasCstAttr = DevUtils.HasCustomAttribute(a_ComponentPath)
         ' カスタムAttributeがあるときは取り除いて取得
-        repoCode = ExtractCodeBody(a_ComponentPath, hasCstAttr)
+        repoCode = DevUtils.ExtractCodeBody(a_ComponentPath, hasCstAttr)
         ' カスタムAttributeの変更が同期されない旨、警告を表示する
         If hasCstAttr Then
             If m_Warnings <> "" Then m_Warnings = m_Warnings & vbCrLf
@@ -199,7 +200,7 @@ Public Sub ImportComponent( _
                 "のカスタムAttributeに変更があっても同期されない。"
         End If
         ' 両者の内容が一致していたらpullしない
-        If Not HasChanged(projCode, repoCode) Then
+        If Not DevUtils.HasChanged(projCode, repoCode) Then
             ' スキップカウンタをインクリメント
             Debug.Print "Skipped: " & modName
             m_SkippedCount = m_SkippedCount + 1
@@ -232,7 +233,7 @@ Public Sub ImportComponent( _
             ' 既存のコードを削除
             '   - モジュールが空の場合をガード
             If comp.CodeModule.CountOfLines > 0 Then
-                Call DeleteCodeLines(comp)
+                Call DevUtils.DeleteCodeLines(comp)
             End If
             ' プロジェクトのモジュールに闘魂注入
             Call comp.CodeModule.AddFromString(repoCode)
@@ -269,12 +270,13 @@ Private Sub ExportComponents( _
         Set m_fso = CreateObject("Scripting.FileSystemObject")
     ' リポジトリがない -> 例外スロー
     If Not m_fso.FolderExists(a_RepositoryPath) Then _
-        Call RaiseError(ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
+        Call DevUtils.RaiseError( _
+            ERR_NOT_FOUND, ERR_SOURCE, "リポジトリ用フォルダが存在しない。")
     ' ExportComponent()を呼び出す
     Dim comp As Object, outDir As String
     For Each comp In ThisWorkbook.VBProject.VBComponents
         ' `Dev...`モジュールは除外
-        If IsDevHelper(comp.Name) Then GoTo Continue
+        If DevUtils.IsDevHelper(comp.Name) Then GoTo Continue
         ' 出力先フォルダパスを取得
         outDir = OutputDirPath(comp.Type, a_RepositoryPath)
         Call ExportComponent(comp, outDir)
@@ -293,11 +295,12 @@ Private Sub ExportComponent( _
         Set m_fso = CreateObject("Scripting.FileSystemObject")
     ' push先フォルダがない -> 例外スロー
     If Not m_fso.FolderExists(a_OutputDir) Then _
-        Call RaiseError(ERR_NOT_FOUND, ERR_SOURCE, "保存先フォルダが存在しない。")
+        Call DevUtils.RaiseError( _
+            ERR_NOT_FOUND, ERR_SOURCE, "保存先フォルダが存在しない。")
 
     ' エクスポートファイル名を取得 -> 保存先パス作成
     Dim f As String, p As String
-    f = a_Component.Name & ComponentExtension(a_Component.Type)
+    f = a_Component.Name & DevUtils.ComponentExtension(a_Component.Type)
     Dim dlmt As String
     dlmt = "\"
     If Right(a_OutputDir, 1) = "\" Then dlmt = ""
@@ -308,10 +311,10 @@ Private Sub ExportComponent( _
     If m_fso.FileExists(p) Then
         ' コードを比較
         Dim projCode As String, repoCode As String
-        projCode = ExtractProjectCode(a_Component)
-        repoCode = ExtractCodeBody(p, HasCustomAttribute(p))
+        projCode = DevUtils.ExtractProjectCode(a_Component)
+        repoCode = DevUtils.ExtractCodeBody(p, DevUtils.HasCustomAttribute(p))
         ' 変更がない場合はエクスポートしなくて良い
-        If Not HasChanged(projCode, repoCode) Then
+        If Not DevUtils.HasChanged(projCode, repoCode) Then
             ' スキップ
             Debug.Print "Skipped: " & a_Component.Name
             m_SkippedCount = m_SkippedCount + 1
@@ -364,10 +367,10 @@ Private Function OutputDirPath( _
         Case vbext_ct_MSForm: sf = FRM_MOD
         Case vbext_ct_Document: sf = DOC_MOD
         Case vbext_ct_ActiveXDesigner
-            Call RaiseError( _
+            Call DevUtils.RaiseError( _
                 ERR_NOT_SUPPORTED, ERR_SOURCE, "ActiveX Designerは非対応である。")
         Case Else
-            Call RaiseError( _
+            Call DevUtils.RaiseError( _
                 ERR_INVALID_ARGUMENT, ERR_SOURCE, "意味不明な引数が渡された。")
     End Select
     ' `a_RepositoryPath`のケツには必ず`\`が付いている
@@ -382,6 +385,12 @@ Private Sub AA_Experiments(): End Sub
 ' =============================================================================
 Private Sub Exp_ImportComponent_SkipIfNotChanged()
     ' モジュールインポート時、同内容ならスキップする
+    Dim modPath As String
+    modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
+    Call ImportComponent(modPath)
+End Sub
+
+Private Sub Exp_ImportComponent_PullNotExistingModule()
     Dim modPath As String
     modPath = ThisWorkbook.Path & "\.dev_helper\ForPullTest.bas"
     Call ImportComponent(modPath)
@@ -415,24 +424,4 @@ Private Sub Exp_ExportModule()
         End If
     Next
 End Sub
-
-Private Sub Exp_EnumerateModuleNames()
-    ' プロジェクトにぶら下がるモジュール名とTypeを列挙する
-    Dim comp As Object
-    For Each comp In ThisWorkbook.VBProject.VBComponents
-        Debug.Print _
-            comp.Name & ": " & comp.Type & _
-            "(" & ComponentTypeName(comp.Type) & ")"
-    Next
-End Sub
-
-Private Sub Exp_EnumerateCodeModules()
-    ' コードモジュールの属性を表示する
-    Dim comp As Object
-    For Each comp In ThisWorkbook.VBProject.VBComponents
-        Debug.Print comp.Name & ": " & comp.CodeModule.CountOfLines & "line(s)."
-    Next
-End Sub
-
-
 
