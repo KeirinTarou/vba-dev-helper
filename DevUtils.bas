@@ -580,23 +580,3 @@ Private Sub Exp_ComponentExtension()
     Debug.Print String(40, "-")
     Debug.Print "Exp_ComponentExtension() done!!"
 End Sub
-
-' まとめて実行対象外にする
-Private Sub Exp_EnumerateModuleNames()
-    ' プロジェクトにぶら下がるモジュール名とTypeを列挙する
-    Dim comp As Object
-    For Each comp In ThisWorkbook.VBProject.VBComponents
-        Debug.Print _
-            comp.Name & ": " & comp.Type & _
-            "(" & ComponentTypeName(comp.Type) & ")"
-    Next
-End Sub
-
-Private Sub Exp_EnumerateCodeModules()
-    ' コードモジュールの属性を表示する
-    Dim comp As Object
-    For Each comp In ThisWorkbook.VBProject.VBComponents
-        Debug.Print comp.Name & ": " & comp.CodeModule.CountOfLines & "line(s)."
-    Next
-End Sub
-

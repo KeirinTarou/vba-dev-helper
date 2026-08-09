@@ -159,7 +159,7 @@ Public Function ComponentFolderName( _
     ComponentFolderName = ret
 End Function
 
-Public Function ComponentTypeName( _
+Private Function ComponentTypeName( _
             ByVal a_ComponentType As vbext_ComponentType) As String
     ' コンポーネントの種別を返す
     Const ERR_SOURCE As String = "DevProj.ComponentTypeName()"
@@ -177,4 +177,24 @@ Public Function ComponentTypeName( _
     ComponentTypeName = ret
 End Function
 
+Private Sub AA_Experiments(): End Sub
+' =============================================================================
+'   Experimental procedures
+' =============================================================================
+Private Sub Exp_EnumerateModuleNames()
+    ' プロジェクトにぶら下がるモジュール名とTypeを列挙する
+    Dim comp As Object
+    For Each comp In ThisWorkbook.VBProject.VBComponents
+        Debug.Print _
+            comp.Name & ": " & comp.Type & _
+            "(" & ComponentTypeName(comp.Type) & ")"
+    Next
+End Sub
 
+Private Sub Exp_EnumerateCodeModules()
+    ' コードモジュールの属性を表示する
+    Dim comp As Object
+    For Each comp In ThisWorkbook.VBProject.VBComponents
+        Debug.Print comp.Name & ": " & comp.CodeModule.CountOfLines & "line(s)."
+    Next
+End Sub
